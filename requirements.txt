@@ -1,0 +1,6 @@
+flask
+instagrapi
+gunicorn
+apscheduler
+requests
+python-dotenv
