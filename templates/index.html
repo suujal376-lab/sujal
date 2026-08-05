@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AURA Z · Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a12;
+            color: #e8edf5;
+            min-height: 100vh;
+            padding: 24px;
+            background-image: radial-gradient(circle at 20% 20%, rgba(79,140,255,0.06) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 80%, rgba(255,59,92,0.04) 0%, transparent 50%);
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #1a1a26; }
+        ::-webkit-scrollbar-thumb { background: #4f8cff; border-radius: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* HEADER */
+        .header {
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+            padding: 16px 24px; background: rgba(12,18,34,0.5); backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.04); border-radius: 18px; margin-bottom: 24px;
+        }
+        .logo { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 2px; }
+        .logo .x { color: #4f8cff; text-shadow: 0 0 20px #4f8cff33; }
+        .logo .sujal { color: #ffffff; }
+        .logo .z { color: #ff3b5c; text-shadow: 0 0 20px #ff3b5c33; }
+        .logo .badge { font-size: 9px; font-weight: 400; background: rgba(79,140,255,0.1); border: 1px solid rgba(79,140,255,0.08); padding: 2px 12px; border-radius: 40px; margin-left: 8px; color: #4f8cff; }
+        .stats { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+        .stat-item { display: flex; flex-direction: column; align-items: center; }
+        .stat-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 20px; line-height: 1.2; }
+        .stat-value.blue { color: #4f8cff; text-shadow: 0 0 30px #4f8cff33; }
+        .stat-value.green { color: #34c759; text-shadow: 0 0 30px #34c75933; }
+        .stat-value.amber { color: #ff9f0a; text-shadow: 0 0 30px #ff9f0a33; }
+        .stat-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.15); font-weight: 500; margin-top: 2px; }
+        .btn-primary { background: #4f8cff; border: none; color: #0a0a12; font-weight: 700; font-size: 13px; padding: 10px 24px; border-radius: 40px; cursor: pointer; transition: 0.25s; box-shadow: 0 4px 20px rgba(79,140,255,0.15); }
+        .btn-primary:hover { background: #3a7ae6; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(79,140,255,0.25); }
+
+        /* ACCOUNT CARDS */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-top: 12px; }
+        .card { background: rgba(12,18,34,0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.03); border-radius: 18px; padding: 16px 18px; transition: all 0.3s ease; }
+        .card:hover { border-color: rgba(79,140,255,0.08); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        .card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .status-dot.on { background: #34c759; box-shadow: 0 0 12px #34c75966; animation: pulse 2s infinite; }
+        .status-dot.cooldown { background: #ff9f0a; box-shadow: 0 0 12px #ff9f0a66; animation: pulse 2s infinite; }
+        .status-dot.off { background: #3a3a4c; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .card-name { font-weight: 600; font-size: 14px; flex: 1; color: #fff; }
+        .card-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.08); }
+        .card-stats { display: flex; gap: 14px; font-size: 11px; color: rgba(255,255,255,0.15); margin-bottom: 10px; }
+        .card-stats strong { color: #fff; font-weight: 600; }
+        .card-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+        .btn-sm { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10px; padding: 4px 12px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.03); background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.15); cursor: pointer; transition: 0.2s; }
+        .btn-sm:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.06); color: #fff; }
+        .btn-sm-start { background: #34c759; border-color: #34c759; color: #0a0a12; }
+        .btn-sm-start:hover { background: #2db84d; }
+        .btn-sm-stop { background: #ff453a; border-color: #ff453a; color: #fff; }
+        .btn-sm-stop:hover { background: #e0352b; }
+        .btn-sm-edit { background: transparent; border-color: rgba(255,255,255,0.02); color: rgba(255,255,255,0.08); }
+        .btn-sm-edit:hover { border-color: rgba(255,255,255,0.06); color: #fff; }
+        .btn-sm-logs { background: transparent; border-color: rgba(255,255,255,0.02); color: rgba(79,140,255,0.3); }
+        .btn-sm-logs:hover { border-color: #4f8cff; color: #4f8cff; }
+        .btn-sm-del { background: transparent; border-color: rgba(255,255,255,0.02); color: rgba(255,255,255,0.04); padding: 4px 8px; }
+        .btn-sm-del:hover { border-color: #ff453a; color: #ff453a; }
+        .btn-sm-expand { background: transparent; border: none; color: rgba(255,255,255,0.03); font-size: 14px; cursor: pointer; padding: 0 4px; }
+        .btn-sm-expand:hover { color: rgba(255,255,255,0.08); }
+        .card-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.02); display: none; font-size: 11px; color: rgba(255,255,255,0.08); }
+        .card-detail.open { display: block; }
+        .gc-pill { display: inline-block; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.02); padding: 2px 10px; border-radius: 40px; margin: 2px 4px 2px 0; font-size: 10px; color: rgba(255,255,255,0.08); }
+        .detail-line { padding: 2px 0; }
+        .detail-line strong { color: rgba(255,255,255,0.15); font-weight: 500; }
+        .last-action-text { color: #4f8cff; font-weight: 500; font-size: 10px; }
+
+        /* ─── LOGS ─── */
+        .log-panel { display: none; margin-top: 8px; background: rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden; }
+        .log-panel.open { display: block; }
+        .log-header { display: flex; justify-content: space-between; padding: 4px 12px; background: rgba(0,0,0,0.1); font-size: 9px; color: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.02); font-weight: 500; letter-spacing: 0.5px; }
+        .log-live { color: #34c759; display: flex; align-items: center; gap: 4px; }
+        .log-live::before { content: ''; width: 4px; height: 4px; background: #34c759; border-radius: 50%; display: inline-block; animation: live-pulse 1.5s infinite; }
+        @keyframes live-pulse { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+        .log-box { height: 110px; overflow-y: auto; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; font-size: 9px; line-height: 1.8; color: rgba(255,255,255,0.04); }
+        .log-line { color: rgba(255,255,255,0.04); }
+        .log-line.ok { color: #34c759; }
+        .log-line.err { color: #ff453a; }
+        .log-line.warn { color: #ff9f0a; }
+        .log-line.info { color: #4f8cff; }
+
+        /* ─── EMPTY ─── */
+        .empty { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.02); }
+        .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.2; }
+        .empty-text { font-size: 13px; color: rgba(255,255,255,0.03); letter-spacing: 0.5px; }
+
+        /* ─── MODAL ─── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(20px); z-index: 999; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: rgba(12,18,34,0.8); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.04); border-radius: 28px; padding: 28px 32px; width: 680px; max-width: 96vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 40px 120px rgba(0,0,0,0.8); }
+        .modal-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 20px; letter-spacing: -0.3px; }
+        .modal-title .hl { color: #4f8cff; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: 1 / -1; }
+        label { font-size: 10px; color: rgba(255,255,255,0.1); font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; }
+        input, textarea, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); color: #fff; padding: 8px 12px; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 13px; transition: 0.2s; outline: none; width: 100%; }
+        input:focus, textarea:focus { border-color: #4f8cff; box-shadow: 0 0 0 3px rgba(79,140,255,0.04); }
+        textarea { resize: vertical; min-height: 48px; }
+        .fetch-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+        .btn-fetch { background: rgba(79,140,255,0.02); border: 1px solid rgba(79,140,255,0.04); color: #4f8cff; padding: 8px 16px; border-radius: 40px; font-weight: 500; cursor: pointer; transition: 0.2s; white-space: nowrap; font-size: 11px; font-family: 'Inter', sans-serif; }
+        .btn-fetch:hover { background: #4f8cff; color: #0a0a12; border-color: #4f8cff; }
+        #fetch-status { font-size: 10px; color: rgba(255,255,255,0.03); margin-top: 4px; }
+        .gc-picker { margin-top: 8px; display: none; }
+        .gc-list { display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto; }
+        .gc-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(0,0,0,0.1); border-radius: 10px; border: 1px solid rgba(255,255,255,0.02); cursor: pointer; transition: 0.2s; font-size: 12px; color: rgba(255,255,255,0.2); }
+        .gc-item:hover { border-color: rgba(255,255,255,0.04); background: rgba(0,0,0,0.05); }
+        .gc-item.selected { border-color: #4f8cff; background: rgba(79,140,255,0.02); }
+        .gc-item input[type=checkbox] { width: 14px; height: 14px; accent-color: #4f8cff; cursor: pointer; }
+        .gc-item-name { flex: 1; color: rgba(255,255,255,0.3); }
+        .gc-item-id { font-size: 9px; color: rgba(255,255,255,0.03); }
+        .msgs-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .msg-row { display: flex; gap: 4px; align-items: flex-start; }
+        .msg-row textarea { flex: 1; }
+        .btn-icon { background: rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.02); color: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 10px; cursor: pointer; font-size: 12px; }
+        .btn-icon:hover { background: rgba(255,69,58,0.04); color: #ff453a; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.02); }
+        .btn-save { background: #4f8cff; border: none; color: #0a0a12; font-weight: 600; padding: 10px 28px; border-radius: 40px; cursor: pointer; transition: 0.3s; font-size: 13px; font-family: 'Inter', sans-serif; box-shadow: 0 4px 20px rgba(79,140,255,0.1); }
+        .btn-save:hover { background: #3a7ae6; transform: scale(1.02); }
+        .btn-cancel { background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); color: rgba(255,255,255,0.06); padding: 10px 20px; border-radius: 40px; cursor: pointer; transition: 0.3s; font-size: 13px; font-family: 'Inter', sans-serif; }
+        .btn-cancel:hover { background: rgba(255,255,255,0.02); }
+        .toggle { position: relative; width: 36px; height: 20px; background: rgba(255,255,255,0.02); border-radius: 40px; cursor: pointer; transition: 0.3s; flex-shrink: 0; }
+        .toggle.active { background: #4f8cff; }
+        .toggle .knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .toggle.active .knob { left: 18px; }
+
+        @media (max-width: 700px) {
+            .header { flex-direction: column; align-items: stretch; text-align: center; }
+            .stats { justify-content: center; }
+            .grid { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: auto; }
+            .fetch-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo"><span class="x">x</span><span class="sujal">SUJAL</span><span class="z">Z</span><span class="badge">AURA</span></div>
+        <div class="stats">
+            <div class="stat-item"><div class="stat-value blue" id="statAccounts">0</div><div class="stat-label">Accounts</div></div>
+            <div class="stat-item"><div class="stat-value green" id="statRunning">0</div><div class="stat-label">Running</div></div>
+            <div class="stat-item"><div class="stat-value amber" id="statSent">0</div><div class="stat-label">Sent</div></div>
+            <button class="btn-primary" onclick="openAddModal()">+ New Account</button>
+        </div>
+    </div>
+
+    <div class="grid" id="accounts-wrap"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+<div class="modal">
+    <div class="modal-title"><span class="hl">✦</span> <span id="modal-title">Add Account</span></div>
+    <div id="modalBody"></div>
+</div>
+</div>
+
+<script>
+let accounts = {};
+let editingId = null;
+let fetchedGroups = [];
+let selectedGCs = [];
+
+function $(id) { return document.getElementById(id); }
+
+// ─── FETCH GROUPS ──────────────────────────────────────────
+async function fetchGroups() {
+    const sid = document.getElementById('f-sid').value.trim();
+    if (!sid) { alert('Enter Session ID first'); return; }
+    const proxy = document.getElementById('f-proxy').value.trim();
+    const statusEl = document.getElementById('fetch-status');
+    statusEl.textContent = '⚡ Fetching...';
+    statusEl.style.color = '#ff9f0a';
+    try {
+        const r = await fetch('/api/fetch-groups', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({session_id: sid, acc_id: editingId || 'fetch_temp', proxy: proxy})
+        });
+        const d = await r.json();
+        if (d.groups && d.groups.length > 0) {
+            fetchedGroups = d.groups;
+            statusEl.textContent = `✅ ${d.groups.length} GCs found`;
+            statusEl.style.color = '#34c759';
+            renderGCPicker();
+            selectedGCs = [];
+            const toSelect = Math.min(10, d.groups.length);  // <--- 10
+            for (let i = 0; i < toSelect; i++) {
+                selectedGCs.push({id: d.groups[i].id, name: d.groups[i].name});
+            }
+            renderGCPicker();
+            syncGroupsField();
+        } else {
+            statusEl.textContent = '⚠️ No GCs found';
+            statusEl.style.color = '#ff9f0a';
+        }
+    } catch(e) {
+        statusEl.textContent = `❌ Error: ${e.message}`;
+        statusEl.style.color = '#ff453a';
+    }
+}
+
+function renderGCPicker() {
+    const picker = document.getElementById('gc-picker');
+    const list = document.getElementById('gc-list');
+    picker.style.display = 'block';
+    list.innerHTML = '';
+    fetchedGroups.forEach(g => {
+        const isSelected = selectedGCs.some(s => s.id === g.id);
+        const item = document.createElement('div');
+        item.className = 'gc-item' + (isSelected ? ' selected' : '');
+        item.innerHTML = `
+            <input type="checkbox" ${isSelected ? 'checked' : ''} data-id="${g.id}" data-name="${g.name}"/>
+            <span class="gc-item-name">${g.name}</span>
+            <span class="gc-item-id">${g.id}</span>
+        `;
+        const cb = item.querySelector('input');
+        cb.addEventListener('change', () => toggleGC(g.id, g.name, cb, item));
+        list.appendChild(item);
+    });
+    updateGCCount();
+}
+
+function toggleGC(id, name, cb, item) {
+    if (cb.checked) {
+        if (selectedGCs.length >= 10) {  // <--- 10
+            cb.checked = false;
+            alert('Max 10 GCs allowed');  // <--- 10
+            return;
+        }
+        selectedGCs.push({id, name});
+        item.classList.add('selected');
+    } else {
+        selectedGCs = selectedGCs.filter(s => s.id !== id);
+        item.classList.remove('selected');
+    }
+    updateGCCount();
+    syncGroupsField();
+}
+
+function updateGCCount() {
+    const el = document.getElementById('gc-count');
+    if (el) el.textContent = selectedGCs.length;
+}
+
+function syncGroupsField() {
+    const el = document.getElementById('f-groups');
+    if (el) el.value = selectedGCs.map(s => s.id).join('\n');
+    const el2 = document.getElementById('f-gnames');
+    if (el2) el2.value = selectedGCs.map(s => s.name).join('\n');
+}
+
+// ─── MESSAGES ──────────────────────────────────────────────
+function addMsgField(val = '') {
+    const wrap = document.getElementById('msgs-wrap');
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    row.innerHTML = `
+        <textarea placeholder="Type your message..." rows="3">${val}</textarea>
+        <button class="btn-icon" onclick="this.parentElement.remove()">✕</button>
+    `;
+    wrap.appendChild(row);
+}
+
+function getMsgs() {
+    return [...document.querySelectorAll('#msgs-wrap textarea')].map(t => t.value.trim()).filter(Boolean);
+}
+
+function setMsgs(raw) {
+    document.getElementById('msgs-wrap').innerHTML = '';
+    const parts = raw.split('---MSG---').map(s => s.trim()).filter(Boolean);
+    if (parts.length === 0) { addMsgField('🔥 Hey! How\'s everything going?'); return; }
+    parts.forEach(p => addMsgField(p));
+}
+
+// ─── MODAL ──────────────────────────────────────────────────
+function openAddModal() {
+    editingId = null;
+    fetchedGroups = [];
+    selectedGCs = [];
+    document.getElementById('modal-title').textContent = 'Add Account';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-sid').value = '';
+    document.getElementById('f-csrf').value = '';
+    document.getElementById('f-proxy').value = '';
+    document.getElementById('f-titles').value = '';
+    document.getElementById('f-msg-min').value = '2';
+    document.getElementById('f-msg-max').value = '5';
+    document.getElementById('f-nc-every-msgs').value = '0';
+    document.getElementById('f-cooldown-after').value = '0';
+    document.getElementById('f-cooldown-dur').value = '5';
+    document.getElementById('f-groups').value = '';
+    document.getElementById('f-gnames').value = '';
+    document.getElementById('gc-picker').style.display = 'none';
+    document.getElementById('gc-list').innerHTML = '';
+    document.getElementById('gc-count').textContent = '0';
+    document.getElementById('fetch-status').textContent = '';
+    setMsgs('');
+    document.getElementById('modal').classList.add('open');
+}
+
+function openEditModal(id) {
+    editingId = id;
+    const acc = accounts[id];
+    selectedGCs = [];
+    const savedGroups = acc.groups ? acc.groups.split('\n').filter(Boolean) : [];
+    const savedNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
+    savedGroups.forEach((gid, i) => {
+        selectedGCs.push({id: gid.trim(), name: savedNames[i] || gid.trim()});
+    });
+    fetchedGroups = selectedGCs.map(s => ({id: s.id, name: s.name}));
+
+    document.getElementById('modal-title').textContent = 'Edit Account';
+    document.getElementById('f-name').value = acc.name || '';
+    document.getElementById('f-sid').value = acc.session_id || '';
+    document.getElementById('f-csrf').value = acc.csrf_token || '';
+    document.getElementById('f-proxy').value = acc.proxy || '';
+    document.getElementById('f-titles').value = acc.nc_titles || '';
+    document.getElementById('f-msg-min').value = acc.msg_delay_min || '2';
+    document.getElementById('f-msg-max').value = acc.msg_delay_max || '5';
+    document.getElementById('f-nc-every-msgs').value = acc.nc_every_msgs || '0';
+    document.getElementById('f-cooldown-after').value = acc.cooldown_after || '0';
+    document.getElementById('f-cooldown-dur').value = acc.cooldown_dur || '5';
+    document.getElementById('f-groups').value = savedGroups.join('\n');
+    document.getElementById('f-gnames').value = savedNames.join('\n');
+    document.getElementById('fetch-status').textContent = '';
+
+    if (selectedGCs.length > 0) {
+        renderGCPicker();
+    } else {
+        document.getElementById('gc-picker').style.display = 'none';
+    }
+    setMsgs(acc.messages || '');
+    document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    editingId = null;
+}
+
+function toggleScheduleSwitch() {
+    const toggle = document.getElementById('scheduleToggle');
+    const hidden = document.getElementById('f-schedule-enabled');
+    toggle.classList.toggle('active');
+    hidden.value = toggle.classList.contains('active') ? 'true' : 'false';
+    if (toggle.classList.contains('active')) {
+        toggle.style.background = '#4f8cff';
+        toggle.querySelector('.knob').style.left = '18px';
+    } else {
+        toggle.style.background = 'rgba(255,255,255,0.02)';
+        toggle.querySelector('.knob').style.left = '2px';
+    }
+}
+
+function getModalForm() {
+    return `
+        <div class="form-grid">
+            <div class="form-group"><label>Name</label><input id="f-name" placeholder="My Bot"/></div>
+            <div class="form-group"><label>Session ID</label><input id="f-sid" placeholder="sessionid" autocomplete="off"/></div>
+            <div class="form-group"><label>CSRF Token</label><input id="f-csrf" placeholder="csrftoken (optional)"/></div>
+            <div class="form-group"><label>Proxy</label><input id="f-proxy" placeholder="http://user:pass@ip:port"/></div>
+            <div class="form-group full"><label>Groups (one per line, max 10)</label>  <!-- <--- 10 -->
+                <textarea id="f-groups" rows="4" placeholder="1234567890&#10;0987654321"></textarea>
+            </div>
+            <div class="form-group full"><label>Group Names (same order, optional)</label>
+                <textarea id="f-gnames" rows="4" placeholder="Group1&#10;Group2"></textarea>
+            </div>
+            <div class="form-group"><label>NC Titles (comma)</label><input id="f-titles" placeholder="Title1, Title2"/></div>
+            <div class="form-group"><label>Messages (---MSG--- separated)</label>
+                <div class="msgs-wrap" id="msgs-wrap"></div>
+                <button class="btn-fetch" style="width:100%;justify-content:center;margin-top:4px;" onclick="addMsgField()">+ Add Message</button>
+            </div>
+            <div class="form-group"><label>Min Delay (s)</label><input id="f-msg-min" type="number" value="2" step="0.5"/></div>
+            <div class="form-group"><label>Max Delay (s)</label><input id="f-msg-max" type="number" value="5" step="0.5"/></div>
+            <div class="form-group"><label>NC every N msgs</label><input id="f-nc-every-msgs" type="number" value="0"/></div>
+            <div class="form-group"><label>Cooldown after N msgs</label><input id="f-cooldown-after" type="number" value="0"/></div>
+            <div class="form-group"><label>Cooldown Duration (min)</label><input id="f-cooldown-dur" type="number" value="5" step="0.5"/></div>
+            <div class="form-group full">
+                <div class="fetch-row">
+                    <div style="flex:1"><label>Fetch Groups</label></div>
+                    <button class="btn-fetch" onclick="fetchGroups()">⚡ Fetch GCs</button>
+                </div>
+                <div id="fetch-status"></div>
+                <div class="gc-picker" id="gc-picker">
+                    <div class="gc-list" id="gc-list"></div>
+                    <div style="margin-top:4px;font-size:10px;color:rgba(255,255,255,0.03);"><span id="gc-count">0</span> / 10 selected</div>  <!-- <--- 10 -->
+                </div>
+            </div>
+            <div class="form-group full" style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,0.15);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.02);">
+                <label style="font-size:10px;color:rgba(255,255,255,0.1);">⏰ Schedule</label>
+                <input type="time" id="f-schedule-start" value="09:00" style="width:100px;"/>
+                <span style="color:rgba(255,255,255,0.02);">→</span>
+                <input type="time" id="f-schedule-stop" value="18:00" style="width:100px;"/>
+                <div class="toggle" id="scheduleToggle" onclick="toggleScheduleSwitch()"><div class="knob"></div></div>
+                <input type="hidden" id="f-schedule-enabled" value="false"/>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-save" onclick="saveAccount()">Save</button>
+        </div>
+    `;
+}
+
+// ─── SAVE ──────────────────────────────────────────────────
+async function saveAccount() {
+    const msgs = getMsgs();
+    if (!msgs.length) { alert('Add at least one message'); return; }
+
+    let finalGroups = selectedGCs;
+    if (finalGroups.length === 0) {
+        const manualGroups = document.getElementById('f-groups').value.trim();
+        const manualNames = document.getElementById('f-gnames').value.trim();
+        if (manualGroups) {
+            const gids = manualGroups.split('\n').filter(Boolean);
+            const gnames = manualNames ? manualNames.split('\n').filter(Boolean) : [];
+            finalGroups = gids.map((id, i) => ({
+                id: id.trim(),
+                name: gnames[i] ? gnames[i].trim() : id.trim()
+            }));
+        }
+    }
+
+    const body = {
+        name: document.getElementById('f-name').value.trim(),
+        session_id: document.getElementById('f-sid').value.trim(),
+        csrf_token: document.getElementById('f-csrf').value.trim(),
+        proxy: document.getElementById('f-proxy').value.trim(),
+        groups: finalGroups.map(s => s.id).join('\n'),
+        group_names: finalGroups.map(s => s.name).join('\n'),
+        nc_titles: document.getElementById('f-titles').value.trim(),
+        messages: msgs.join('---MSG---'),
+        msg_delay_min: parseFloat(document.getElementById('f-msg-min').value),
+        msg_delay_max: parseFloat(document.getElementById('f-msg-max').value),
+        nc_every_msgs: parseInt(document.getElementById('f-nc-every-msgs').value),
+        cooldown_after: parseInt(document.getElementById('f-cooldown-after').value),
+        cooldown_dur: parseFloat(document.getElementById('f-cooldown-dur').value),
+        schedule_enabled: document.getElementById('f-schedule-enabled').value === 'true',
+        schedule_start: document.getElementById('f-schedule-start').value,
+        schedule_stop: document.getElementById('f-schedule-stop').value,
+    };
+
+    if (!body.name) { alert('Enter account name'); return; }
+    if (!body.session_id && !editingId) { alert('Session ID required'); return; }
+
+    const url = editingId ? `/api/accounts/${editingId}` : '/api/accounts';
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.success) { closeModal(); loadAccounts(); }
+    else alert(d.error || 'Save failed');
+}
+
+// ─── CONTROLS ──────────────────────────────────────────────
+async function startBot(id) {
+    const r = await fetch(`/api/accounts/${id}/start`, {method:'POST'});
+    const d = await r.json();
+    if (!d.success) alert(d.error || 'Start failed');
+}
+
+async function stopBot(id) {
+    await fetch(`/api/accounts/${id}/stop`, {method:'POST'});
+}
+
+async function deleteAcc(id) {
+    if (!confirm('Delete this account?')) return;
+    await fetch(`/api/accounts/${id}`, {method:'DELETE'});
+    loadAccounts();
+}
+
+function toggleLogs(id) {
+    const el = document.getElementById(`log-panel-${id}`);
+    if (el) el.classList.toggle('open');
+}
+
+function toggleDetail(id) {
+    const el = document.getElementById(`detail-${id}`);
+    if (el) el.classList.toggle('open');
+}
+
+async function startAllBots() {
+    if (!confirm('Start all bots?')) return;
+    await fetch('/api/accounts/start-all', {method:'POST'});
+    loadAccounts();
+}
+
+async function stopAllBots() {
+    if (!confirm('Stop all bots?')) return;
+    await fetch('/api/accounts/stop-all', {method:'POST'});
+    loadAccounts();
+}
+
+async function exportBackup() {
+    const r = await fetch('/api/backup/export');
+    const data = await r.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aura_z_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function importBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.accounts) { alert('Invalid backup'); return; }
+    await fetch('/api/backup/import', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({data: data})
+    });
+    alert('Backup imported!');
+    loadAccounts();
+}
+
+// ─── RENDER ─────────────────────────────────────────────────
+function fmtTime(secs) {
+    if (!secs || secs < 0) return '--:--:--';
+    const h = Math.floor(secs/3600);
+    const m = Math.floor((secs%3600)/60);
+    const s = Math.floor(secs%60);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function renderAccounts(data) {
+    const wrap = document.getElementById('accounts-wrap');
+    const ids = Object.keys(data);
+
+    if (ids.length === 0) {
+        wrap.innerHTML = `<div class="empty"><div class="empty-icon">✦</div><div class="empty-text">No accounts yet.<br>Click "New Account" to get started.</div></div>`;
+        return;
+    }
+
+    let totalRunning = 0, totalSent = 0;
+    ids.forEach(id => {
+        const st = data[id].status || {};
+        if (st.running) totalRunning++;
+        totalSent += st.sent || 0;
+    });
+    document.getElementById('statAccounts').textContent = ids.length;
+    document.getElementById('statRunning').textContent = totalRunning;
+    document.getElementById('statSent').textContent = totalSent;
+
+    ids.forEach(id => {
+        const acc = data[id];
+        const st = acc.status || {};
+        const dot = st.running ? 'on' : (st.cooldown ? 'cooldown' : 'off');
+        const runtime = st.runtime_secs ? fmtTime(st.runtime_secs) : '--:--:--';
+        const cooldownStr = st.cooldown && st.cooldown_remaining > 0 ? ' 😴 ' + fmtTime(st.cooldown_remaining) : '';
+        const gcNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
+
+        let existing = document.getElementById(`card-${id}`);
+        if (!existing) {
+            existing = document.createElement('div');
+            existing.className = 'card';
+            existing.id = `card-${id}`;
+            wrap.appendChild(existing);
+        }
+
+        const logOpen = document.getElementById(`log-panel-${id}`)?.classList.contains('open') || false;
+        const detailOpen = document.getElementById(`detail-${id}`)?.classList.contains('open') || false;
+
+        existing.innerHTML = `
+            <div class="card-top">
+                <div class="status-dot ${dot}"></div>
+                <div class="card-name">${acc.name || id} ${cooldownStr}</div>
+                <div class="card-time">${runtime}</div>
+            </div>
+            <div class="card-stats">
+                <span><strong>${st.sent||0}</strong> sent</span>
+                <span><strong>${st.failed||0}</strong> fail</span>
+                <span><strong>${st.nc_done||0}</strong> NC</span>
+            </div>
+            <div class="card-actions">
+                ${st.running ? `<button class="btn-sm btn-sm-stop" onclick="stopBot('${id}')">Stop</button>` : `<button class="btn-sm btn-sm-start" onclick="startBot('${id}')">Start</button>`}
+                <button class="btn-sm btn-sm-logs" onclick="toggleLogs('${id}')">Logs</button>
+                <button class="btn-sm btn-sm-edit" onclick="openEditModal('${id}')">Edit</button>
+                <button class="btn-sm btn-sm-del" onclick="deleteAcc('${id}')">✕</button>
+                <button class="btn-sm btn-sm-expand" onclick="toggleDetail('${id}')">⌃</button>
+            </div>
+            <div class="card-detail ${detailOpen ? 'open' : ''}" id="detail-${id}">
+                ${gcNames.length ? `<div>${gcNames.map(n=>`<span class="gc-pill">${n}</span>`).join('')}</div>` : ''}
+                <div class="detail-line"><strong>Delay:</strong> ${acc.msg_delay_min||2}s – ${acc.msg_delay_max||5}s</div>
+                ${acc.cooldown_after > 0 ? `<div class="detail-line"><strong>Cooldown:</strong> ${acc.cooldown_after} → ${acc.cooldown_dur}min</div>` : ''}
+                ${acc.nc_titles ? `<div class="detail-line"><strong>NC Titles:</strong> ${acc.nc_titles.split(',').length}</div>` : ''}
+                ${acc.schedule_enabled ? `<div class="detail-line"><strong>Schedule:</strong> ${acc.schedule_start || '09:00'} → ${acc.schedule_stop || '18:00'}</div>` : ''}
+                <div class="last-action-text">❯ ${st.last_action || 'Idle'}</div>
+                <div class="log-panel ${logOpen ? 'open' : ''}" id="log-panel-${id}">
+                    <div class="log-header"><span>Console</span><span class="log-live">LIVE</span></div>
+                    <div class="log-box" id="log-box-${id}"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    wrap.querySelectorAll('.card').forEach(el => {
+        if (!data[el.id.replace('card-','')]) el.remove();
+    });
+}
+
+function colorLog(line) {
+    if (line.includes('✅') || line.includes('✓')) return 'ok';
+    if (line.includes('❌') || line.includes('failed')) return 'err';
+    if (line.includes('⚠️')) return 'warn';
+    if (line.includes('🔄')) return 'info';
+    if (line.includes('💤') || line.includes('😴')) return 'info';
+    return '';
+}
+
+// ─── POLLING ─────────────────────────────────────────────────
+async function loadAccounts() {
+    try {
+        const r = await fetch('/api/accounts');
+        accounts = await r.json();
+        renderAccounts(accounts);
+    } catch(e) { console.error(e); }
+}
+
+async function pollLogs() {
+    document.querySelectorAll('.log-panel.open').forEach(panel => {
+        const id = panel.id.replace('log-panel-','');
+        fetch(`/api/accounts/${id}/logs`).then(r => r.json()).then(d => {
+            const box = document.getElementById(`log-box-${id}`);
+            if (box && d.logs) {
+                const current = box.querySelectorAll('.log-line').length;
+                if (current === 0) {
+                    box.innerHTML = d.logs.map(l => `<div class="log-line ${colorLog(l)}">${l}</div>`).join('');
+                    box.scrollTop = box.scrollHeight;
+                } else if (d.logs.length > current) {
+                    const newLines = d.logs.slice(current);
+                    newLines.forEach(l => {
+                        const div = document.createElement('div');
+                        div.className = `log-line ${colorLog(l)}`;
+                        div.textContent = l;
+                        box.appendChild(div);
+                    });
+                    if (box.scrollHeight - box.scrollTop - box.clientHeight < 40) box.scrollTop = box.scrollHeight;
+                }
+            }
+        }).catch(()=>{});
+    });
+}
+
+// ─── INIT ───────────────────────────────────────────────────
+loadAccounts();
+setInterval(loadAccounts, 4000);
+setInterval(pollLogs, 1500);
+
+document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
+// ─── MODAL BODY INIT ───────────────────────────────────────
+document.getElementById('modalBody').innerHTML = getModalForm();
+</script>
+</body>
+</html>
