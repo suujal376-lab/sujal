@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA Z · Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a12;
+            color: #e8edf5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        /* ─── CANVAS ─── */
+        #starCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ─── LOGIN BOX ─── */
+        .login-box {
+            position: relative;
+            z-index: 2;
+            background: rgba(12, 18, 34, 0.3);
+            backdrop-filter: blur(40px) saturate(1.2);
+            -webkit-backdrop-filter: blur(40px) saturate(1.2);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 32px;
+            padding: 48px 40px;
+            width: 420px;
+            max-width: 94vw;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            opacity: 0;
+            animation: fadeUp 0.8s ease-in-out 0.3s forwards;
+            transition: transform 0.4s ease;
+        }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── SHAKE ─── */
+        .login-box.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-12px); }
+            40% { transform: translateX(12px); }
+            60% { transform: translateX(-8px); }
+            80% { transform: translateX(8px); }
+        }
+
+        /* ─── BORDER GLOW ─── */
+        .login-box::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 32px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(192,192,192,0.02), rgba(255,255,255,0.02), rgba(192,192,192,0.02));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            animation: borderPulse 6s ease-in-out infinite;
+        }
+        @keyframes borderPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* ─── SPLASH AREA ─── */
+        .splash-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-bottom: 16px;
+            min-height: 0; /* will expand when content is visible */
+        }
+
+        /* ─── TERMINAL BOX ─── */
+        .terminal-box {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(192, 192, 192, 0.15);
+            border-radius: 12px;
+            padding: 14px 18px;
+            text-align: left;
+            min-height: 80px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            opacity: 1;
+            transform: scale(1);
+            margin-bottom: 0;
+        }
+        .terminal-box.hide {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+            position: absolute;
+            width: calc(100% - 36px); /* account for padding */
+            height: 0;
+            padding: 0;
+            min-height: 0;
+            border: none;
+            overflow: hidden;
+        }
+        .terminal-box .line {
+            font-size: 13px;
+            line-height: 1.7;
+            color: rgba(192, 200, 215, 0.7);
+            letter-spacing: 0.3px;
+            min-height: 22px;
+        }
+        .terminal-box .line .prompt { color: #6b8cff; font-weight: 500; }
+        .terminal-box .line .cmd { color: #c0c8d8; }
+        .terminal-box .line .output { color: #a8b8d0; }
+        .terminal-box .line .highlight { color: #e0e8f0; font-weight: 600; text-shadow: 0 0 20px rgba(192,200,216,0.1); }
+        .terminal-box .line .glow { color: #c0c0c0; text-shadow: 0 0 30px rgba(192,192,192,0.15); }
+        .terminal-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #c0c0c0;
+            margin-left: 4px;
+            vertical-align: text-bottom;
+            animation: blink 0.9s step-end infinite;
+        }
+
+        /* ─── GREETING BOX (Now Block, Not Absolute) ─── */
+        .greeting-box {
+            font-family: 'Inter', sans-serif;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(192, 192, 192, 0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            text-align: center;
+            min-height: 80px;
+            display: none; /* hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            margin-bottom: 0;
+        }
+        .greeting-box.show {
+            display: flex;
+        }
+        .greeting-box .greeting-line {
+            font-size: 18px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.7);
+            min-height: 30px;
+        }
+        .greeting-box .greeting-line .highlight {
+            background: linear-gradient(135deg, #c0c0c0, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+        .greeting-box .greeting-line .glow {
+            color: #c0c0c0;
+            text-shadow: 0 0 30px rgba(192,192,192,0.15);
+        }
+        .greeting-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1.2em;
+            background: #c0c0c0;
+            margin-left: 4px;
+            vertical-align: text-bottom;
+            animation: blink 0.9s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* ─── CONTENT WRAPPER ─── */
+        .content-wrapper {
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        .content-wrapper.show {
+            opacity: 1;
+        }
+
+        /* ─── TYPOGRAPHY ─── */
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 40px;
+            letter-spacing: 2px;
+            min-height: 56px;
+            background: linear-gradient(135deg, #c0c0c0, #ffffff, #a8a8a8);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: silverShift 4s ease-in-out infinite alternate;
+            display: inline-block;
+            text-shadow: 0 0 40px rgba(192,192,192,0.2);
+        }
+        @keyframes silverShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            font-size: 13px;
+            color: rgba(255,255,255,0.2);
+            letter-spacing: 6px;
+            min-height: 24px;
+            margin-bottom: 28px;
+            text-transform: uppercase;
+        }
+
+        /* ─── ERROR MESSAGE ─── */
+        .error-msg {
+            color: #ff6b61;
+            font-size: 12px;
+            background: rgba(255,69,58,0.08);
+            border: 1px solid rgba(255,69,58,0.12);
+            border-radius: 10px;
+            padding: 6px 12px;
+            margin-bottom: 12px;
+            text-align: center;
+            display: none;
+            animation: fadeUp 0.3s ease;
+        }
+        .error-msg.show { display: block; }
+
+        /* ─── PASSWORD FIELD ─── */
+        .password-wrap {
+            position: relative;
+            margin-bottom: 12px;
+        }
+        .password-wrap input {
+            width: 100%;
+            padding: 12px 44px 12px 16px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 14px;
+            color: #e8edf5;
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .password-wrap input:focus {
+            border-color: #c0c0c0;
+            box-shadow: 0 0 0 3px rgba(192,192,192,0.04);
+        }
+        .password-wrap .eye-btn {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.25);
+            font-size: 18px;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 4px;
+            line-height: 1;
+        }
+        .password-wrap .eye-btn:hover {
+            color: rgba(255,255,255,0.6);
+        }
+
+        /* ─── BUTTON ─── */
+        button[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #a8a8a8, #ffffff);
+            border: none;
+            border-radius: 14px;
+            color: #0a0a12;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 20px rgba(192,192,192,0.1);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button[type="submit"]:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 30px rgba(192,192,192,0.2);
+        }
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(10,10,18,0.2);
+            border-top-color: #0a0a12;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        button[type="submit"].loading .btn-spinner {
+            display: inline-block;
+        }
+        button[type="submit"].loading .btn-text {
+            display: none;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ─── SYSTEM STATUS ─── */
+        .system-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.12);
+            letter-spacing: 1px;
+            margin-top: 14px;
+            opacity: 0;
+            animation: greetFade 1.2s ease forwards 3.2s;
+        }
+        .status-dot {
+            width: 5px;
+            height: 5px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: statusPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes statusPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes greetFade {
+            0% { opacity: 0; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── VISIT COUNTER ─── */
+        .visit-counter {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 10;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.04);
+            letter-spacing: 1px;
+            opacity: 0;
+            animation: greetFade 1.2s ease forwards 3.5s;
+            pointer-events: none;
+        }
+        .visit-counter span { color: rgba(192,192,192,0.06); }
+
+        .made-by {
+            margin-top: 18px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            font-size: 11px;
+            color: rgba(255,255,255,0.03);
+            letter-spacing: 2px;
+            min-height: 20px;
+        }
+        .made-by span {
+            color: #c0c0c0;
+            font-weight: 500;
+        }
+
+        @media (max-width: 480px) {
+            .login-box { padding: 32px 20px; }
+            .logo { font-size: 30px; }
+            .terminal-box .line { font-size: 11px; }
+            .greeting-box .greeting-line { font-size: 15px; }
+            .visit-counter { bottom: 16px; right: 16px; font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ─── STARS ─── -->
+    <canvas id="starCanvas"></canvas>
+
+    <!-- ─── VISIT COUNTER ─── -->
+    <div class="visit-counter" id="visitCounter">
+        SESSION <span id="sessionCount">#001</span>
+    </div>
+
+    <div class="login-box" id="loginBox">
+        <!-- ─── SPLASH AREA ─── -->
+        <div class="splash-container" id="splashContainer">
+            <!-- Terminal Box -->
+            <div class="terminal-box" id="terminalBox">
+                <div class="line" id="termLine1"></div>
+                <div class="line" id="termLine2"></div>
+                <div class="line" id="termLine3"></div>
+            </div>
+
+            <!-- Greeting Box (Block Layout) -->
+            <div class="greeting-box" id="greetingBox">
+                <div class="greeting-line" id="greetingLine"></div>
+            </div>
+        </div>
+
+        <!-- ─── CONTENT WRAPPER ─── -->
+        <div class="content-wrapper" id="contentWrapper">
+            <div class="logo" id="logoText">AURA Z</div>
+            <div class="subtitle" id="subtitleText">✦ COMMAND CENTER ✦</div>
+
+            <!-- Error Message -->
+            {% if error %}
+                <div class="error-msg show" id="errorMsg">⚠️ {{ error }}</div>
+            {% endif %}
+
+            <form id="loginForm" method="post">
+                <div class="password-wrap">
+                    <input type="password" name="password" id="passwordInput" placeholder="Enter Password" required autofocus>
+                    <button type="button" class="eye-btn" id="eyeBtn" aria-label="Toggle password visibility">👁</button>
+                </div>
+                <button type="submit" id="submitBtn">
+                    <span class="btn-text">⚡ UNLOCK</span>
+                    <span class="btn-spinner"></span>
+                </button>
+            </form>
+
+            <div class="system-status">
+                <span class="status-dot"></span>
+                SYSTEM ONLINE
+            </div>
+
+            <div class="made-by">✦ MADE BY <span>xSUJAL</span> ✦</div>
+        </div>
+    </div>
+
+    <script>
+        // ─── CONSTELLATION STARS ──────────────────────────────────
+        (function() {
+            const canvas = document.getElementById('starCanvas');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+            const NUM_STARS = 120;
+            const CONNECTION_DIST = 130;
+            const MAX_SPEED = 0.25;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            class Star {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 2.8 + 1.2;
+                    this.speedX = (Math.random() - 0.5) * MAX_SPEED * 2;
+                    this.speedY = (Math.random() - 0.5) * MAX_SPEED * 2;
+                    this.twinkle = Math.random() * Math.PI * 2;
+                    this.twinkleSpeed = 0.008 + Math.random() * 0.018;
+                    this.alpha = 0.5 + Math.random() * 0.5;
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    if (this.x < 0) this.x = canvas.width;
+                    if (this.x > canvas.width) this.x = 0;
+                    if (this.y < 0) this.y = canvas.height;
+                    if (this.y > canvas.height) this.y = 0;
+                    this.twinkle += this.twinkleSpeed;
+                }
+                draw() {
+                    const alpha = this.alpha * (0.7 + 0.3 * Math.sin(this.twinkle));
+                    const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
+                    grad.addColorStop(0, `rgba(200, 210, 235, ${alpha * 0.35})`);
+                    grad.addColorStop(0.5, `rgba(200, 210, 235, ${alpha * 0.08})`);
+                    grad.addColorStop(1, 'rgba(200, 210, 235, 0)');
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(220, 225, 245, ${alpha * 0.9})`;
+                    ctx.shadowColor = `rgba(200, 210, 235, ${alpha * 0.15})`;
+                    ctx.shadowBlur = 12;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            for (let i = 0; i < NUM_STARS; i++) stars.push(new Star());
+
+            function drawLines() {
+                for (let i = 0; i < stars.length; i++) {
+                    for (let j = i + 1; j < stars.length; j++) {
+                        const dx = stars[i].x - stars[j].x;
+                        const dy = stars[i].y - stars[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < CONNECTION_DIST) {
+                            const alpha = (1 - (dist / CONNECTION_DIST)) * 0.12;
+                            const t1 = 0.8 + 0.2 * Math.sin(stars[i].twinkle);
+                            const t2 = 0.8 + 0.2 * Math.sin(stars[j].twinkle);
+                            ctx.beginPath();
+                            ctx.moveTo(stars[i].x, stars[i].y);
+                            ctx.lineTo(stars[j].x, stars[j].y);
+                            ctx.strokeStyle = `rgba(180, 195, 220, ${alpha * t1 * t2})`;
+                            ctx.lineWidth = 0.6;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let star of stars) { star.update(); star.draw(); }
+                drawLines();
+                requestAnimationFrame(animate);
+            }
+            animate();
+            window.addEventListener('resize', resize);
+        })();
+
+        // ─── VISIT COUNTER ─────────────────────────────────────────
+        (function() {
+            let count = parseInt(localStorage.getItem('auraVisitCount')) || 0;
+            count++;
+            localStorage.setItem('auraVisitCount', count);
+            document.getElementById('sessionCount').textContent = '#' + String(count).padStart(3, '0');
+        })();
+
+        // ─── SPLASH SEQUENCE ──────────────────────────────────────
+        (function() {
+            const terminalBox = document.getElementById('terminalBox');
+            const greetingBox = document.getElementById('greetingBox');
+            const greetingLine = document.getElementById('greetingLine');
+            const contentWrapper = document.getElementById('contentWrapper');
+            const splashContainer = document.getElementById('splashContainer');
+
+            const line1 = document.getElementById('termLine1');
+            const line2 = document.getElementById('termLine2');
+            const line3 = document.getElementById('termLine3');
+
+            const terminalLines = [
+                { el: line1, text: '<span class="prompt">$</span> <span class="cmd">Initializing AURA Z...</span>' },
+                { el: line2, text: '<span class="prompt">$</span> <span class="cmd">Loading modules...</span>' },
+                { el: line3, text: '<span class="output">✦ <span class="highlight glow">SUJAL POWERSHELL</span> ✦</span>' }
+            ];
+
+            let currentLine = 0;
+            let charIndex = 0;
+
+            function typeTerminalLine() {
+                if (currentLine >= terminalLines.length) {
+                    // Terminal done → wait 2.5s → show greeting
+                    setTimeout(() => {
+                        terminalBox.classList.add('hide');
+                        // After terminal hides, show greeting
+                        setTimeout(() => {
+                            terminalBox.style.display = 'none';
+                            showGreeting();
+                        }, 500);
+                    }, 2500);
+                    return;
+                }
+                const line = terminalLines[currentLine];
+                const fullText = line.text;
+                const el = line.el;
+                el.innerHTML = '';
+                charIndex = 0;
+
+                function typeChar() {
+                    if (charIndex < fullText.length) {
+                        const currentHTML = fullText.substring(0, charIndex + 1);
+                        el.innerHTML = currentHTML + '<span class="terminal-cursor"></span>';
+                        charIndex++;
+                        setTimeout(typeChar, 35);
+                    } else {
+                        el.innerHTML = fullText;
+                        currentLine++;
+                        setTimeout(typeTerminalLine, 250 + (currentLine === 2 ? 400 : 0));
+                    }
+                }
+                setTimeout(typeChar, 150);
+            }
+
+            function showGreeting() {
+                const hour = new Date().getHours();
+                let greeting = '';
+                if (hour < 12) greeting = 'Good Morning';
+                else if (hour < 18) greeting = 'Good Afternoon';
+                else greeting = 'Good Evening';
+
+                const suffixes = ['Boss', 'Commander', 'Sifu', 'Captain', 'Chief'];
+                const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+                const fullText = `${greeting}, <span class="highlight glow">${suffix}</span>`;
+
+                // Show greeting box
+                greetingBox.classList.add('show');
+                greetingLine.innerHTML = '';
+                let gCharIndex = 0;
+
+                function typeGreetingChar() {
+                    if (gCharIndex < fullText.length) {
+                        const remaining = fullText.substring(gCharIndex);
+                        if (remaining.startsWith('<span')) {
+                            const endTag = remaining.indexOf('</span>') + 7;
+                            const chunk = remaining.substring(0, endTag);
+                            greetingLine.innerHTML = fullText.substring(0, gCharIndex) + chunk + '<span class="greeting-cursor"></span>';
+                            gCharIndex += endTag;
+                            setTimeout(typeGreetingChar, 50);
+                        } else {
+                            greetingLine.innerHTML = fullText.substring(0, gCharIndex + 1) + '<span class="greeting-cursor"></span>';
+                            gCharIndex++;
+                            setTimeout(typeGreetingChar, 45);
+                        }
+                    } else {
+                        greetingLine.innerHTML = fullText;
+                        // Wait 3s → hide greeting → show content wrapper
+                        setTimeout(() => {
+                            greetingBox.classList.remove('show');
+                            setTimeout(() => {
+                                // Show content wrapper
+                                contentWrapper.classList.add('show');
+                            }, 500);
+                        }, 3000);
+                    }
+                }
+                setTimeout(typeGreetingChar, 400);
+            }
+
+            // Start terminal after a small delay
+            setTimeout(typeTerminalLine, 400);
+
+            // Fallback: show content if something fails
+            setTimeout(() => {
+                if (!contentWrapper.classList.contains('show')) {
+                    contentWrapper.classList.add('show');
+                }
+            }, 9000);
+        })();
+
+        // ─── SHOW / HIDE PASSWORD ──────────────────────────────────
+        (function() {
+            const passwordInput = document.getElementById('passwordInput');
+            const eyeBtn = document.getElementById('eyeBtn');
+            let isVisible = false;
+
+            eyeBtn.addEventListener('click', function() {
+                isVisible = !isVisible;
+                passwordInput.type = isVisible ? 'text' : 'password';
+                eyeBtn.textContent = isVisible ? '🙈' : '👁';
+                eyeBtn.style.color = isVisible ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)';
+            });
+        })();
+
+        // ─── LOADING BUTTON + SHAKE ON ERROR ─────────────────────
+        (function() {
+            const form = document.getElementById('loginForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const loginBox = document.getElementById('loginBox');
+
+            if (errorMsg && errorMsg.classList.contains('show')) {
+                loginBox.classList.add('shake');
+                setTimeout(() => loginBox.classList.remove('shake'), 600);
+            }
+
+            form.addEventListener('submit', function(e) {
+                if (submitBtn.classList.contains('loading')) {
+                    e.preventDefault();
+                    return;
+                }
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                if (errorMsg) errorMsg.classList.remove('show');
+            });
+
+            setTimeout(() => {
+                if (submitBtn.classList.contains('loading')) {
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                }
+            }, 5000);
+
+            if (errorMsg) {
+                errorMsg.addEventListener('click', function() {
+                    this.classList.remove('show');
+                });
+            }
+        })();
+
+        // ─── KEYBOARD SHORTCUTS ──────────────────────────────────
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const err = document.getElementById('errorMsg');
+                if (err && err.classList.contains('show')) {
+                    err.classList.remove('show');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
