@@ -107,8 +107,16 @@ def bot_worker(acc_id, acc, stop_event):
     session_id = acc["session_id"]
     proxy = acc.get("proxy", "").strip() or None
     csrf_token = acc.get("csrf_token", "").strip() or None
+    # initial groups (raw list from config)
     raw_groups = [extract_thread_id(g) for g in acc.get("groups", "").split("\n") if g.strip()]
-    groups = raw_groups[:10]   # <<<<<<<<<<<<<<<<<<<<<<<<<<<< YAHAN CHANGE KIYA (5 → 10)
+    # convert to mutable lists with lock
+    groups_lock = threading.Lock()
+    groups = list(raw_groups)  # mutable
+    group_names = [n.strip() for n in acc.get("group_names", "").split("\n") if n.strip()]
+    # if group_names length mismatch, pad with ids
+    while len(group_names) < len(groups):
+        group_names.append(groups[len(group_names)])
+
     titles = [t.strip() for t in acc.get("nc_titles", "").split(",") if t.strip()]
     messages = [m.strip() for m in acc.get("messages", "").split("---MSG---") if m.strip()]
     if not messages:
@@ -119,6 +127,10 @@ def bot_worker(acc_id, acc, stop_event):
     cooldown_after_msgs = int(acc.get("cooldown_after", 0))
     cooldown_dur = float(acc.get("cooldown_dur", 5))
     nc_every_msgs = int(acc.get("nc_every_msgs", 0))
+
+    # auto-fetch settings
+    fetch_enabled = acc.get("fetch_enabled", False)
+    fetch_interval = int(acc.get("fetch_interval", 300))  # seconds
 
     bot_status[acc_id] = {
         "running": True, "sent": 0, "failed": 0,
@@ -143,6 +155,65 @@ def bot_worker(acc_id, acc, stop_event):
         bot_status[acc_id]["last_action"] = f"Login failed: {e}"
         return
 
+    # ─── FETCH THREAD ──────────────────────────────────────
+    def fetch_groups_periodically():
+        while not stop_event.is_set():
+            # wait for interval, but check stop_event every second
+            for _ in range(fetch_interval):
+                if stop_event.is_set():
+                    return
+                time.sleep(1)
+            if not fetch_enabled:
+                continue
+            log(acc_id, "🔄 Fetching groups...")
+            try:
+                threads = cl.direct_threads(amount=50)  # get up to 50 groups
+                new_ids = []
+                new_names = []
+                for t in threads:
+                    if t.is_group:
+                        tid = str(t.id)
+                        name = t.thread_title or tid
+                        new_ids.append(tid)
+                        new_names.append(name)
+                # merge with existing groups (preserve order, avoid duplicates)
+                with groups_lock:
+                    # create dict of existing
+                    existing = {g: i for i, g in enumerate(groups)}
+                    # add new ones not already present
+                    added = 0
+                    for idx, tid in enumerate(new_ids):
+                        if tid not in existing:
+                            groups.append(tid)
+                            group_names.append(new_names[idx] if idx < len(new_names) else tid)
+                            added += 1
+                    # update total_gcs in status
+                    bot_status[acc_id]["total_gcs"] = len(groups)
+                if added > 0:
+                    log(acc_id, f"✅ Added {added} new groups (total now {len(groups)})")
+                    # also update data file to persist new groups
+                    with data_lock:
+                        d = load_data()
+                        if acc_id in d["accounts"]:
+                            acc_data = d["accounts"][acc_id]
+                            # rebuild groups and group_names from current lists
+                            with groups_lock:
+                                acc_data["groups"] = "\n".join(groups)
+                                acc_data["group_names"] = "\n".join(group_names)
+                            save_data(d)
+                else:
+                    log(acc_id, "ℹ️ No new groups found")
+            except Exception as e:
+                log(acc_id, f"❌ Fetch error: {e}")
+
+    # start fetch thread if enabled
+    if fetch_enabled:
+        fetch_thread = threading.Thread(target=fetch_groups_periodically, daemon=True)
+        fetch_thread.start()
+    else:
+        fetch_thread = None
+
+    # ─── MAIN LOOP ──────────────────────────────────────────
     title_idx = 0
     msg_idx = 0
     msgs_since_cd = 0
@@ -152,7 +223,10 @@ def bot_worker(acc_id, acc, stop_event):
         nonlocal title_idx
         if not titles: return
         t = titles[title_idx % len(titles)]
-        for thread_id in groups:
+        # copy groups list to avoid mutation during iteration
+        with groups_lock:
+            current_groups = list(groups)
+        for thread_id in current_groups:
             if stop_event.is_set(): break
             bot_status[acc_id]["last_action"] = f"Checking NC → {thread_id}"
             try:
@@ -188,7 +262,11 @@ def bot_worker(acc_id, acc, stop_event):
             do_nc_for_all()
             msgs_since_nc = 0
 
-        for thread_id in groups:
+        # get current groups list
+        with groups_lock:
+            current_groups = list(groups)
+
+        for thread_id in current_groups:
             if stop_event.is_set(): break
 
             message = messages[msg_idx % len(messages)] if messages else "🔥 Hey!"
@@ -240,7 +318,9 @@ def bot_worker(acc_id, acc, stop_event):
 
             if stop_event.is_set(): break
             delay = random.uniform(msg_delay_min, msg_delay_max)
-            log(acc_id, f"💤 Delay: {delay:.1f}s")
+            # log only if delay > 0.5
+            if delay > 0.5:
+                log(acc_id, f"💤 Delay: {delay:.1f}s")
             time.sleep(delay)
 
         if cooldown_after_msgs > 0 and msgs_since_cd >= cooldown_after_msgs:
@@ -257,11 +337,15 @@ def bot_worker(acc_id, acc, stop_event):
             msgs_since_cd = 0
             log(acc_id, "✅ Cooldown done")
 
+    # cleanup
+    if fetch_thread and fetch_thread.is_alive():
+        stop_event.set()
+        fetch_thread.join(timeout=2)
     log(acc_id, "🛑 Bot stopped")
     bot_status[acc_id]["running"] = False
     bot_status[acc_id]["last_action"] = "Stopped"
 
-# ─── SCHEDULER ──────────────────────────────────────────
+# ─── SCHEDULER ────────────────────────────────────────── (same as before, keep)
 def scheduler_check():
     with app.app_context():
         data = load_data()
@@ -290,7 +374,7 @@ def start_bot_thread(acc_id, acc):
     bot_threads[acc_id] = t
     t.start()
 
-# ─── ROUTES ──────────────────────────────────────────────
+# ─── ROUTES ────────────────────────────────────────────── (same, but need to update add/update to handle new fields)
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
     error = None
@@ -351,6 +435,8 @@ def get_accounts():
             "schedule_enabled": acc.get("schedule_enabled", False),
             "schedule_start": acc.get("schedule_start", ""),
             "schedule_stop": acc.get("schedule_stop", ""),
+            "fetch_enabled": acc.get("fetch_enabled", False),
+            "fetch_interval": acc.get("fetch_interval", 300),
             "status": st,
             "runtime_secs": runtime
         }
@@ -388,6 +474,8 @@ def add_account():
         "schedule_enabled": body.get("schedule_enabled", False),
         "schedule_start": body.get("schedule_start", ""),
         "schedule_stop": body.get("schedule_stop", ""),
+        "fetch_enabled": body.get("fetch_enabled", False),
+        "fetch_interval": int(body.get("fetch_interval", 300)),
     }
     with data_lock:
         d = load_data()
@@ -404,15 +492,17 @@ def update_account(acc_id):
         if acc_id not in d["accounts"]:
             return jsonify({"success": False, "error": "Not found"}), 404
         acc = d["accounts"][acc_id]
+        # allowed keys
         for k in ["name", "proxy", "csrf_token", "groups", "group_names", "nc_titles",
                   "messages", "msg_delay_min", "msg_delay_max", "nc_every_msgs",
-                  "cooldown_after", "cooldown_dur", "schedule_enabled", "schedule_start", "schedule_stop"]:
+                  "cooldown_after", "cooldown_dur", "schedule_enabled", "schedule_start", "schedule_stop",
+                  "fetch_enabled", "fetch_interval"]:
             if k in body:
                 if k in ["msg_delay_min", "msg_delay_max", "cooldown_dur"]:
                     acc[k] = float(body[k])
-                elif k in ["nc_every_msgs", "cooldown_after"]:
+                elif k in ["nc_every_msgs", "cooldown_after", "fetch_interval"]:
                     acc[k] = int(body[k])
-                elif k in ["schedule_enabled"]:
+                elif k in ["schedule_enabled", "fetch_enabled"]:
                     acc[k] = bool(body[k])
                 else:
                     acc[k] = body[k]
