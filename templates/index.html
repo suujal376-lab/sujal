@@ -770,7 +770,8 @@
                     statusEl.textContent = `✅ ${d.groups.length} GCs found`;
                     statusEl.style.color = '#4ade80';
                     selectedGCs = [];
-                    const toSelect = Math.min(10, d.groups.length); // 10 GCs max
+                    // Select up to 10 by default
+                    const toSelect = Math.min(10, d.groups.length);
                     for (let i = 0; i < toSelect; i++) selectedGCs.push({ id: d.groups[i].id, name: d.groups[i].name });
                     renderGCPicker();
                     syncGroupsField();
@@ -805,7 +806,7 @@
         }
         function toggleGC(id, name, cb, item) {
             if (cb.checked) {
-                if (selectedGCs.length >= 10) { // 10 GCs max
+                if (selectedGCs.length >= 10) {
                     cb.checked = false;
                     toast('Max 10 GCs allowed', 'warn');
                     return;
@@ -885,6 +886,12 @@
             const toggle = $('scheduleToggle');
             if (enabled) toggle.classList.add('active');
             else toggle.classList.remove('active');
+
+            // NEW: fetch settings
+            $('fetch-enabled-toggle').classList.toggle('active', !!acc.fetch_enabled);
+            $('f-fetch-enabled').value = acc.fetch_enabled ? 'true' : 'false';
+            $('f-fetch-interval').value = acc.fetch_interval || 300;
+
             if (selectedGCs.length > 0) renderGCPicker();
             else { $('gc-picker').style.display = 'none';
                 $('gc-list').innerHTML = ''; }
@@ -907,12 +914,15 @@
             $('f-schedule-stop').value = '18:00';
             $('f-schedule-enabled').value = 'false';
             $('scheduleToggle').classList.remove('active');
+            // Reset fetch settings
+            $('fetch-enabled-toggle').classList.remove('active');
+            $('f-fetch-enabled').value = 'false';
+            $('f-fetch-interval').value = 300;
         }
 
         function cloneAccount(id) {
             const acc = accounts[id];
             if (!acc) return;
-            // Open modal with cloned data
             editingId = null;
             selectedGCs = [];
             const savedGroups = acc.groups ? acc.groups.split('\n').filter(Boolean) : [];
@@ -939,6 +949,10 @@
             const toggle = $('scheduleToggle');
             if (acc.schedule_enabled) toggle.classList.add('active');
             else toggle.classList.remove('active');
+            // Fetch settings
+            $('fetch-enabled-toggle').classList.toggle('active', !!acc.fetch_enabled);
+            $('f-fetch-enabled').value = acc.fetch_enabled ? 'true' : 'false';
+            $('f-fetch-interval').value = acc.fetch_interval || 300;
             if (selectedGCs.length > 0) renderGCPicker();
             else { $('gc-picker').style.display = 'none';
                 $('gc-list').innerHTML = ''; }
@@ -953,6 +967,13 @@
         function toggleScheduleSwitch() {
             const toggle = $('scheduleToggle'),
                 hidden = $('f-schedule-enabled');
+            toggle.classList.toggle('active');
+            hidden.value = toggle.classList.contains('active') ? 'true' : 'false';
+        }
+
+        function toggleFetchSwitch() {
+            const toggle = $('fetch-enabled-toggle'),
+                hidden = $('f-fetch-enabled');
             toggle.classList.toggle('active');
             hidden.value = toggle.classList.contains('active') ? 'true' : 'false';
         }
@@ -985,8 +1006,17 @@
                             <div id="fetch-status"></div>
                             <div class="gc-picker" id="gc-picker">
                                 <div class="gc-list" id="gc-list"></div>
-                                <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.3);"><span id="gc-count">0</span> / 10 selected</div> <!-- Max 10 -->
+                                <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.3);"><span id="gc-count">0</span> / 10 selected</div>
                             </div>
+                        </div>
+                        <!-- NEW: Auto-fetch settings -->
+                        <div class="form-group full" style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <label style="margin:0;">🔄 Auto-fetch new groups</label>
+                            <div class="toggle" id="fetch-enabled-toggle" onclick="toggleFetchSwitch()"><div class="knob"></div></div>
+                            <input type="hidden" id="f-fetch-enabled" value="false"/>
+                            <label style="margin:0;margin-left:6px;">Interval (s)</label>
+                            <input type="number" id="f-fetch-interval" value="300" min="60" step="30" style="width:100px;"/>
+                            <span style="font-size:9px;color:var(--text-muted);">min 60s</span>
                         </div>
                         <div class="form-group full" style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
                             <label style="margin:0;">⏰ Schedule</label>
@@ -1033,6 +1063,8 @@
                 schedule_enabled: $('f-schedule-enabled').value === 'true',
                 schedule_start: $('f-schedule-start').value,
                 schedule_stop: $('f-schedule-stop').value,
+                fetch_enabled: $('f-fetch-enabled').value === 'true',
+                fetch_interval: parseInt($('f-fetch-interval').value) || 300
             };
             if (!body.name) { toast('Enter account name', 'warn'); return; }
             if (!body.session_id && !editingId) { toast('Session ID required', 'warn'); return; }
@@ -1228,6 +1260,7 @@
                 const gcNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
                 const pillLabel = status === 'running' ? 'Running' : status === 'cooldown' ? 'Cooldown' : 'Idle';
                 const hasSchedule = acc.schedule_enabled;
+                const fetchInfo = acc.fetch_enabled ? `🔄 ${acc.fetch_interval || 300}s` : '';
 
                 let existing = $(`card-${id}`);
                 if (!existing) {
@@ -1246,6 +1279,7 @@
                             <div class="card-name">${acc.name || id}</div>
                             <div class="card-time">${runtime}</div>
                             ${hasSchedule ? '<span class="schedule-badge" title="Schedule enabled">⏰</span>' : ''}
+                            ${fetchInfo ? '<span class="schedule-badge" title="Auto-fetch enabled">🔄</span>' : ''}
                         </div>
                         <div style="margin-bottom:4px;"><span class="status-pill ${status}">${pillLabel}${cooldownStr}</span></div>
                         <div class="card-stats">
@@ -1267,6 +1301,7 @@
                             ${acc.cooldown_after > 0 ? `<div class="detail-line"><strong>Cooldown:</strong> after ${acc.cooldown_after} msgs → ${acc.cooldown_dur} min</div>` : ''}
                             ${acc.nc_titles ? `<div class="detail-line"><strong>NC Titles:</strong> ${acc.nc_titles.split(',').length}</div>` : ''}
                             ${hasSchedule ? `<div class="detail-line"><strong>Schedule:</strong> ${acc.schedule_start || '09:00'} → ${acc.schedule_stop || '18:00'}</div>` : ''}
+                            ${fetchInfo ? `<div class="detail-line"><strong>Auto-fetch:</strong> every ${acc.fetch_interval || 300}s</div>` : ''}
                             <div class="last-action-text">❯ ${st.last_action || 'Idle'}</div>
                             <div class="log-panel ${logOpen ? 'open' : ''}" id="log-panel-${id}">
                                 <div class="log-header"><span>Console</span><span class="log-live">LIVE</span></div>
