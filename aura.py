@@ -1,711 +1,352 @@
-import json, os, threading, time, collections, random, urllib.parse
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
-from instagrapi import Client
-from apscheduler.schedulers.background import BackgroundScheduler
-
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "aura-z-secret-key-2024")
-
-DATA_FILE = "data_v2.json"
-data_lock = threading.Lock()
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
-
-# ─── DATA ────────────────────────────────────────────────
-def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE) as f: return json.load(f)
-    return {"accounts": {}}
-
-def save_data(d):
-    with open(DATA_FILE, "w") as f: json.dump(d, f, indent=2)
-
-# ─── GLOBALS ─────────────────────────────────────────────
-bot_threads = {}
-bot_stop = {}
-bot_status = {}
-ig_clients = {}
-bot_logs = {}
-scheduler = BackgroundScheduler()
-scheduler.start()
-
-def log(acc_id, msg):
-    ts = time.strftime("%H:%M:%S")
-    line = f"[{ts}] {msg}"
-    if acc_id not in bot_logs:
-        bot_logs[acc_id] = collections.deque(maxlen=100)  # 🔥 reduced to 100 lines
-    bot_logs[acc_id].append(line)
-
-# ─── AUTH ────────────────────────────────────────────────
-def login_required(f):
-    def wrap(*args, **kwargs):
-        if not session.get('logged_in'):
-            return redirect(url_for('login_page'))
-        return f(*args, **kwargs)
-    wrap.__name__ = f.__name__
-    return wrap
-
-# ─── INSTAGRAPI HELPERS ──────────────────────────────────
-def decode_session(session_id):
-    if not session_id: return session_id
-    try: return urllib.parse.unquote(session_id)
-    except: return session_id
-
-def get_client(acc_id, session_id, proxy=None, csrf_token=None):
-    if acc_id in ig_clients: return ig_clients[acc_id]
-    if 'fetch_temp' in ig_clients:
-        cl = ig_clients.pop('fetch_temp')
-        ig_clients[acc_id] = cl
-        return cl
-    cl = Client()
-    if proxy: cl.set_proxy(proxy)
-    cl.login_by_sessionid(decode_session(session_id))
-    ig_clients[acc_id] = cl
-    return cl
-
-def extract_thread_id(s):
-    s = s.strip()
-    if "instagram.com/direct/t/" in s:
-        return s.rstrip("/").split("/")[-1]
-    return s
-
-def nc_rename(cl, thread_id, title):
-    try:
-        result = cl.direct_thread_update_title(thread_id, title)
-        if result is not False: return True, None
-    except: pass
-    try:
-        cl.private_request(
-            f"direct_v2/threads/{thread_id}/update_title/",
-            data={"title": title, "_uuid": cl.uuid, "_uid": str(cl.user_id), "_csrftoken": cl.token}
-        )
-        return True, None
-    except: pass
-    try:
-        thread = cl.direct_thread(thread_id)
-        r = thread.update_title(title)
-        if r is not False: return True, None
-    except: pass
-    try:
-        cl.private_request(
-            f"direct_v2/threads/{thread_id}/update_title/",
-            data={"title": title, "_uuid": cl.uuid, "_uid": str(cl.user_id), "use_unified_inbox": "true"}
-        )
-        return True, None
-    except Exception as e4:
-        return False, str(e4)
-
-def get_thread_title(cl, thread_id):
-    try:
-        thread = cl.direct_thread(int(thread_id))
-        return (thread.thread_title or "").strip()
-    except:
-        return None
-
-# ─── BOT WORKER ──────────────────────────────────────────
-def bot_worker(acc_id, acc, stop_event):
-    session_id = acc["session_id"]
-    proxy = acc.get("proxy", "").strip() or None
-    csrf_token = acc.get("csrf_token", "").strip() or None
-    raw_groups = [extract_thread_id(g) for g in acc.get("groups", "").split("\n") if g.strip()]
-    groups_lock = threading.Lock()
-    groups = list(raw_groups)
-    group_names = [n.strip() for n in acc.get("group_names", "").split("\n") if n.strip()]
-    while len(group_names) < len(groups):
-        group_names.append(groups[len(group_names)])
-
-    titles = [t.strip() for t in acc.get("nc_titles", "").split(",") if t.strip()]
-    messages = [m.strip() for m in acc.get("messages", "").split("---MSG---") if m.strip()]
-    if not messages:
-        messages = ["🔥 Hey! How's everything going?"]
-
-    # ─── Read config with defaults ───
-    msg_delay_min = float(acc.get("msg_delay_min", 2))
-    msg_delay_max = float(acc.get("msg_delay_max", 5))
-    cooldown_after_msgs = int(acc.get("cooldown_after", 0))
-    cooldown_dur = float(acc.get("cooldown_dur", 5))
-    nc_every_msgs = int(acc.get("nc_every_msgs", 0))
-    nc_mode = acc.get("nc_mode", "global")  # "global" or "per_group"
-    fetch_enabled = acc.get("fetch_enabled", False)
-    fetch_interval = int(acc.get("fetch_interval", 300))
-
-    # 🔥 Force min delay >= 10s for longevity
-    if msg_delay_min < 10:
-        msg_delay_min = 10
-        log(acc_id, f"⚠️ Min delay forced to 10s (was {acc.get('msg_delay_min', 2)})")
-    if msg_delay_max < msg_delay_min:
-        msg_delay_max = msg_delay_min + 2
-
-    bot_status[acc_id] = {
-        "running": True, "sent": 0, "failed": 0,
-        "nc_done": 0, "nc_failed": 0, "nc_skipped": 0,
-        "gcs_done": 0, "total_gcs": len(groups),
-        "last_action": "Logging in...", "started_at": time.time(),
-        "cooldown": False, "cooldown_end": 0
-    }
-
-    log(acc_id, f"⚡ Starting bot for {acc.get('name', acc_id)}...")
-
-    try:
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            future = ex.submit(get_client, acc_id, session_id, proxy, csrf_token)
-            cl = future.result(timeout=30)
-        log(acc_id, f"✅ Logged in")
-        bot_status[acc_id]["last_action"] = "Logged in ✓"
-    except Exception as e:
-        log(acc_id, f"❌ Login failed: {e}")
-        bot_status[acc_id]["running"] = False
-        bot_status[acc_id]["last_action"] = f"Login failed: {e}"
-        return
-
-    # ─── Fetch Thread (dynamic interval) ──────────────────
-    def fetch_groups_periodically():
-        while not stop_event.is_set():
-            # Read fresh interval from data file each cycle
-            with data_lock:
-                d = load_data()
-                acc_data = d["accounts"].get(acc_id, {})
-                current_interval = acc_data.get("fetch_interval", 300)
-            for _ in range(current_interval):
-                if stop_event.is_set(): return
-                time.sleep(1)
-            if not fetch_enabled:
-                continue
-            log(acc_id, "🔄 Fetching groups...")
-            try:
-                threads = cl.direct_threads(amount=50)
-                new_ids = []
-                new_names = []
-                for t in threads:
-                    if t.is_group:
-                        tid = str(t.id)
-                        name = t.thread_title or tid
-                        new_ids.append(tid)
-                        new_names.append(name)
-                with groups_lock:
-                    existing = {g: i for i, g in enumerate(groups)}
-                    added = 0
-                    for idx, tid in enumerate(new_ids):
-                        if tid not in existing:
-                            groups.append(tid)
-                            group_names.append(new_names[idx] if idx < len(new_names) else tid)
-                            added += 1
-                    bot_status[acc_id]["total_gcs"] = len(groups)
-                if added > 0:
-                    log(acc_id, f"✅ Added {added} new groups (total now {len(groups)})")
-                    with data_lock:
-                        d = load_data()
-                        if acc_id in d["accounts"]:
-                            with groups_lock:
-                                d["accounts"][acc_id]["groups"] = "\n".join(groups)
-                                d["accounts"][acc_id]["group_names"] = "\n".join(group_names)
-                            save_data(d)
-                else:
-                    log(acc_id, "ℹ️ No new groups found")
-            except Exception as e:
-                log(acc_id, f"❌ Fetch error: {e}")
-
-    if fetch_enabled:
-        fetch_thread = threading.Thread(target=fetch_groups_periodically, daemon=True)
-        fetch_thread.start()
-    else:
-        fetch_thread = None
-
-    # ─── Session Keep-Alive (dummy call every 6 hours) ───
-    last_keepalive = time.time()
-
-    # ─── NC Functions ──────────────────────────────────────
-    title_idx = 0  # global for rotation
-
-    def rename_single_thread(thread_id, title):
-        """Rename a single thread, skip if already same."""
-        try:
-            current_title = get_thread_title(cl, thread_id)
-        except:
-            current_title = None
-        if current_title is not None and current_title.strip() == title.strip():
-            bot_status[acc_id]["nc_skipped"] += 1
-            return True  # already set
-        try:
-            ok, err = nc_rename(cl, int(thread_id), title)
-            if ok:
-                bot_status[acc_id]["nc_done"] += 1
-                log(acc_id, f"✅ NC done [{title}] → {thread_id}")
-                return True
-            else:
-                bot_status[acc_id]["nc_failed"] += 1
-                log(acc_id, f"❌ NC failed → {thread_id}: {err}")
-                return False
-        except Exception as e:
-            bot_status[acc_id]["nc_failed"] += 1
-            log(acc_id, f"❌ NC error → {thread_id}: {e}")
-            return False
-
-    def rename_all_groups():
-        nonlocal title_idx
-        if not titles: return
-        t = titles[title_idx % len(titles)]
-        with groups_lock:
-            current_groups = list(groups)
-        for thread_id in current_groups:
-            if stop_event.is_set(): break
-            rename_single_thread(thread_id, t)
-        title_idx += 1
-
-    # ─── Per-group message counter ────────────────────────
-    group_msg_count = {g: 0 for g in groups}
-
-    # ─── Initial NC ────────────────────────────────────────
-    log(acc_id, "✏️ Initial NC...")
-    rename_all_groups()
-
-    # ─── Main Loop ──────────────────────────────────────────
-    msg_idx = 0
-    msgs_since_cd = 0
-    msgs_since_nc = 0
-
-    while not stop_event.is_set():
-        # Get current groups list
-        with groups_lock:
-            current_groups = list(groups)
-
-        for thread_id in current_groups:
-            if stop_event.is_set(): break
-
-            # ─── Send message ──────────────────────────────
-            message = messages[msg_idx % len(messages)] if messages else "🔥 Hey!"
-            bot_status[acc_id]["last_action"] = f"Sending → {thread_id}"
-            try:
-                cl.direct_send(message, thread_ids=[int(thread_id)])
-                bot_status[acc_id]["sent"] += 1
-                msgs_since_cd += 1
-                msgs_since_nc += 1
-                # Per-group counter
-                group_msg_count[thread_id] = group_msg_count.get(thread_id, 0) + 1
-                log(acc_id, f"✅ Sent → {thread_id}")
-            except Exception as e:
-                bot_status[acc_id]["failed"] += 1
-                err_str = str(e)
-                status_code = None
-                if hasattr(e, 'response') and e.response is not None:
-                    try:
-                        resp_json = e.response.json()
-                        ig_msg = resp_json.get('message') or resp_json.get('error_title') or err_str
-                        status_code = e.response.status_code
-                        err_str = f"{ig_msg} (status {status_code})"
-                    except:
-                        status_code = e.response.status_code
-                        err_str = f"{status_code}: {e.response.text[:120]}"
-                log(acc_id, f"❌ Send failed → {thread_id}: {err_str}")
-
-                if status_code == 403 or "user_has_logged_out" in err_str or "login_required" in err_str:
-                    log(acc_id, "🔄 Session expired — re-logging in...")
-                    try:
-                        ig_clients.pop(acc_id, None)
-                        cl = get_client(acc_id, session_id, proxy, csrf_token)
-                        log(acc_id, "✅ Re-login successful")
-                        bot_status[acc_id]["last_action"] = "Re-login done ✓"
-                    except Exception as re_err:
-                        log(acc_id, f"❌ Re-login failed: {re_err}")
-                        bot_status[acc_id]["running"] = False
-                        bot_status[acc_id]["last_action"] = f"Re-login failed"
-                        return
-                else:
-                    log(acc_id, "⏳ Error cooldown — 5 min pause...")
-                    bot_status[acc_id]["cooldown"] = True
-                    for _ in range(300):
-                        if stop_event.is_set(): break
-                        time.sleep(1)
-                    bot_status[acc_id]["cooldown"] = False
-                    log(acc_id, "✅ Error cooldown done")
-
-            msg_idx += 1
-            bot_status[acc_id]["gcs_done"] += 1
-
-            # ─── NC per group (if mode = per_group) ──────
-            if nc_mode == "per_group" and nc_every_msgs > 0:
-                if group_msg_count[thread_id] >= nc_every_msgs:
-                    group_msg_count[thread_id] = 0
-                    if titles:
-                        # Use next title (rotate per group? For simplicity, rotate globally)
-                        t = titles[title_idx % len(titles)]
-                        rename_single_thread(thread_id, t)
-                        title_idx += 1
-
-            # ─── Global NC (if mode = global) ────────────
-            if nc_mode == "global" and titles and nc_every_msgs > 0 and msgs_since_nc >= nc_every_msgs:
-                log(acc_id, f"✏️ Global NC after {nc_every_msgs} messages...")
-                rename_all_groups()
-                msgs_since_nc = 0
-
-            # ─── Session Keep-Alive (every 6 hours) ──────
-            if time.time() - last_keepalive > 21600:  # 6 hours
-                try:
-                    cl.get_user_id(cl.user_id)  # dummy call
-                    log(acc_id, "💤 Keep-alive ping sent")
-                except:
-                    pass
-                last_keepalive = time.time()
-
-            # ─── Delay ─────────────────────────────────────
-            if stop_event.is_set(): break
-            delay = random.uniform(msg_delay_min, msg_delay_max)
-            if delay > 0.5:
-                log(acc_id, f"💤 Delay: {delay:.1f}s")
-            time.sleep(delay)
-
-        # ─── Cooldown (global) ────────────────────────────
-        if cooldown_after_msgs > 0 and msgs_since_cd >= cooldown_after_msgs:
-            dur_secs = cooldown_dur * 60
-            log(acc_id, f"😴 Cooldown {cooldown_dur} min...")
-            bot_status[acc_id]["cooldown"] = True
-            bot_status[acc_id]["cooldown_end"] = time.time() + dur_secs
-            elapsed = 0
-            while elapsed < dur_secs and not stop_event.is_set():
-                time.sleep(1)
-                elapsed += 1
-            bot_status[acc_id]["cooldown"] = False
-            bot_status[acc_id]["cooldown_end"] = 0
-            msgs_since_cd = 0
-            log(acc_id, "✅ Cooldown done")
-
-    # ─── Cleanup ────────────────────────────────────────────
-    if fetch_thread and fetch_thread.is_alive():
-        stop_event.set()
-        fetch_thread.join(timeout=2)
-    log(acc_id, "🛑 Bot stopped")
-    bot_status[acc_id]["running"] = False
-    bot_status[acc_id]["last_action"] = "Stopped"
-
-# ─── WATCHDOG (Auto-Restart) ─────────────────────────────
-def watchdog_check():
-    with app.app_context():
-        data = load_data()
-        for acc_id, acc in data.get("accounts", {}).items():
-            st = bot_status.get(acc_id, {})
-            if st.get("running", False):
-                t = bot_threads.get(acc_id)
-                if t is None or not t.is_alive():
-                    log(acc_id, "⚠️ Thread died unexpectedly! Restarting...")
-                    start_bot_thread(acc_id, acc)
-
-scheduler.add_job(watchdog_check, 'interval', minutes=5, id='watchdog')
-
-# ─── SCHEDULER (for start/stop times) ────────────────────
-def scheduler_check():
-    with app.app_context():
-        data = load_data()
-        now = time.strftime("%H:%M")
-        for acc_id, acc in data.get("accounts", {}).items():
-            schedule_enabled = acc.get("schedule_enabled", False)
-            schedule_start = acc.get("schedule_start", "")
-            schedule_stop = acc.get("schedule_stop", "")
-            if not schedule_enabled: continue
-            if schedule_start == now:
-                if acc_id not in bot_threads or not bot_threads[acc_id].is_alive():
-                    start_bot_thread(acc_id, acc)
-            if schedule_stop == now:
-                if acc_id in bot_stop:
-                    bot_stop[acc_id].set()
-
-scheduler.add_job(scheduler_check, 'interval', minutes=1, id='scheduler_check')
-
-def start_bot_thread(acc_id, acc):
-    if acc_id in bot_stop:
-        bot_stop[acc_id].set()
-        time.sleep(1)
-    stop_event = threading.Event()
-    bot_stop[acc_id] = stop_event
-    t = threading.Thread(target=bot_worker, args=(acc_id, acc, stop_event), daemon=True)
-    bot_threads[acc_id] = t
-    t.start()
-
-# ─── ROUTES ──────────────────────────────────────────────
-@app.route("/login", methods=["GET", "POST"])
-def login_page():
-    error = None
-    if request.method == "POST":
-        if request.form.get("password") == ADMIN_PASSWORD:
-            session['logged_in'] = True
-            return redirect(url_for('index'))
-        else:
-            return redirect(url_for('login_page', error=1))
-    error_param = request.args.get('error')
-    if error_param == '1':
-        error = "Invalid password. Please try again."
-    return render_template("login.html", error=error)
-
-@app.route("/logout")
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('login_page'))
-
-@app.route("/")
-@login_required
-def index():
-    return render_template("index.html")
-
-@app.route("/health")
-def health():
-    return {"status": "ok", "timestamp": time.time()}
-
-# ─── API ──────────────────────────────────────────────────
-@app.route("/api/accounts")
-@login_required
-def get_accounts():
-    with data_lock:
-        d = load_data()
-    result = {}
-    for acc_id, acc in d.get("accounts", {}).items():
-        st = bot_status.get(acc_id, {"running": False})
-        if st.get("started_at") and st.get("running"):
-            runtime = int(time.time() - st["started_at"])
-        else:
-            runtime = 0
-        result[acc_id] = {
-            "name": acc.get("name", acc_id),
-            "session_id": acc.get("session_id", "")[:10] + "...",
-            "csrf_token": acc.get("csrf_token", ""),
-            "proxy": acc.get("proxy", ""),
-            "groups": acc.get("groups", ""),
-            "group_names": acc.get("group_names", ""),
-            "nc_titles": acc.get("nc_titles", ""),
-            "messages": acc.get("messages", ""),
-            "msg_delay_min": acc.get("msg_delay_min", 2),
-            "msg_delay_max": acc.get("msg_delay_max", 5),
-            "nc_every_msgs": acc.get("nc_every_msgs", 0),
-            "nc_mode": acc.get("nc_mode", "global"),
-            "cooldown_after": acc.get("cooldown_after", 0),
-            "cooldown_dur": acc.get("cooldown_dur", 5),
-            "schedule_enabled": acc.get("schedule_enabled", False),
-            "schedule_start": acc.get("schedule_start", ""),
-            "schedule_stop": acc.get("schedule_stop", ""),
-            "fetch_enabled": acc.get("fetch_enabled", False),
-            "fetch_interval": acc.get("fetch_interval", 300),
-            "status": st,
-            "runtime_secs": runtime
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AURA Z · Ultimate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        /* ─── CSS VARIABLES / THEMES ─── */
+        :root {
+            --bg-primary: #07070e;
+            --bg-secondary: rgba(255,255,255,0.055);
+            --bg-modal: rgba(12,14,24,0.92);
+            --text-primary: #e8edf5;
+            --text-dim: rgba(255,255,255,0.48);
+            --text-muted: rgba(255,255,255,0.32);
+            --glass-border: rgba(255,255,255,0.12);
+            --accent: #c0c8d8;
+            --accent-glow: rgba(180,190,210,0.2);
+            --shadow: 0 8px 32px rgba(0,0,0,0.3);
+            --card-bg: rgba(255,255,255,0.055);
+            --green: #4ade80;
+            --red: #ff6b61;
+            --orange: #ffb340;
+            --blue: #6b8cff;
+            --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
-    return jsonify(result)
+        [data-theme="silver"] {
+            --bg-primary: #0e0e16;
+            --text-primary: #e8ecf0;
+            --accent: #d0d8e8;
+            --glass-border: rgba(255,255,255,0.18);
+            --bg-secondary: rgba(255,255,255,0.1);
+            --card-bg: rgba(255,255,255,0.08);
+        }
+        [data-theme="cosmic"] {
+            --bg-primary: #08041a;
+            --text-primary: #e8e0f5;
+            --accent: #a78bfa;
+            --glass-border: rgba(167,139,250,0.2);
+            --bg-secondary: rgba(167,139,250,0.06);
+            --card-bg: rgba(167,139,250,0.06);
+            --accent-glow: rgba(167,139,250,0.15);
+            --green: #6ee7b7;
+            --red: #fca5a5;
+            --orange: #fcd34d;
+            --blue: #93bbfc;
+        }
 
-@app.route("/api/accounts", methods=["POST"])
-@login_required
-def add_account():
-    body = request.json
-    session_id = (body.get("session_id") or "").strip()
-    if not session_id:
-        return jsonify({"success": False, "error": "Session ID required"}), 400
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background var(--transition), color var(--transition);
+        }
+        #starCanvas {
+            position: fixed; inset: 0; z-index: 0;
+            display: block; width: 100vw; height: 100vh;
+        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(192,200,216,0.2); border-radius: 10px; }
 
-    with data_lock:
-        d = load_data()
-        for acc_id, acc in d.get("accounts", {}).items():
-            if acc.get("session_id") == session_id:
-                return jsonify({"success": False, "error": "Session ID already exists!"}), 400
+        /* ─── APP ─── */
+        .app {
+            position: relative; z-index: 2;
+            display: flex; height: 100vh; padding: 12px; gap: 12px;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    acc_id = str(int(time.time() * 1000))
-    entry = {
-        "name": body.get("name", f"Bot_{acc_id}"),
-        "session_id": session_id,
-        "csrf_token": body.get("csrf_token", ""),
-        "proxy": body.get("proxy", ""),
-        "groups": body.get("groups", ""),
-        "group_names": body.get("group_names", ""),
-        "nc_titles": body.get("nc_titles", ""),
-        "messages": body.get("messages", "🔥 Hey! How's everything going?"),
-        "msg_delay_min": float(body.get("msg_delay_min", 2)),
-        "msg_delay_max": float(body.get("msg_delay_max", 5)),
-        "nc_every_msgs": int(body.get("nc_every_msgs", 0)),
-        "nc_mode": body.get("nc_mode", "global"),
-        "cooldown_after": int(body.get("cooldown_after", 0)),
-        "cooldown_dur": float(body.get("cooldown_dur", 5)),
-        "schedule_enabled": body.get("schedule_enabled", False),
-        "schedule_start": body.get("schedule_start", ""),
-        "schedule_stop": body.get("schedule_stop", ""),
-        "fetch_enabled": body.get("fetch_enabled", False),
-        "fetch_interval": int(body.get("fetch_interval", 300)),
-    }
-    with data_lock:
-        d = load_data()
-        d["accounts"][acc_id] = entry
-        save_data(d)
-    return jsonify({"success": True, "id": acc_id})
+        /* ─── SIDEBAR ─── */
+        .sidebar {
+            width: 200px;
+            background: var(--bg-secondary);
+            backdrop-filter: blur(32px) saturate(1.15);
+            -webkit-backdrop-filter: blur(32px) saturate(1.15);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 18px 12px;
+            display: flex; flex-direction: column; flex-shrink: 0; height: 100%;
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05);
+            transition: all var(--transition);
+            overflow: hidden;
+        }
+        .sidebar.collapsed { width: 64px; padding: 18px 8px; }
+        .sidebar.collapsed .logo-text,
+        .sidebar.collapsed .nav-label,
+        .sidebar.collapsed .footer-text { display: none; }
+        .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
+        .sidebar.collapsed .logo { margin-bottom: 16px; padding-bottom: 12px; }
 
-@app.route("/api/accounts/<acc_id>", methods=["PUT"])
-@login_required
-def update_account(acc_id):
-    body = request.json
-    with data_lock:
-        d = load_data()
-        if acc_id not in d["accounts"]:
-            return jsonify({"success": False, "error": "Not found"}), 404
-        acc = d["accounts"][acc_id]
-        for k in ["name", "proxy", "csrf_token", "groups", "group_names", "nc_titles",
-                  "messages", "msg_delay_min", "msg_delay_max", "nc_every_msgs",
-                  "nc_mode", "cooldown_after", "cooldown_dur", "schedule_enabled", "schedule_start", "schedule_stop",
-                  "fetch_enabled", "fetch_interval"]:
-            if k in body:
-                if k in ["msg_delay_min", "msg_delay_max", "cooldown_dur"]:
-                    acc[k] = float(body[k])
-                elif k in ["nc_every_msgs", "cooldown_after", "fetch_interval"]:
-                    acc[k] = int(body[k])
-                elif k in ["schedule_enabled", "fetch_enabled"]:
-                    acc[k] = bool(body[k])
-                else:
-                    acc[k] = body[k]
-        if body.get("session_id"):
-            acc["session_id"] = body["session_id"]
-            ig_clients.pop(acc_id, None)
-        save_data(d)
-    return jsonify({"success": True})
+        .sidebar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .logo { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 17px; letter-spacing: 1.5px; cursor: pointer; user-select: none; }
+        .logo-mark {
+            background: linear-gradient(135deg, var(--accent), #ffffff, var(--accent));
+            background-size: 200% 200%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: silverShift 5s ease-in-out infinite alternate;
+        }
+        @keyframes silverShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        .hamburger {
+            background: none; border: none; color: var(--text-dim); font-size: 20px;
+            cursor: pointer; padding: 4px; border-radius: 8px; transition: 0.2s;
+            display: none; line-height: 1;
+        }
+        .hamburger:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .nav { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+        .nav-item {
+            padding: 9px 12px; border-radius: 12px; font-size: 13px; font-weight: 500;
+            color: var(--text-dim); cursor: pointer; transition: all 0.22s ease;
+            display: flex; align-items: center; gap: 10px; border: 1px solid transparent;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+        .nav-item.active {
+            background: rgba(var(--accent), 0.12); color: #e4e8f0;
+            border-color: rgba(var(--accent), 0.2);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .nav-item .icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+        .footer-text {
+            border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;
+            font-size: 10px; color: var(--text-muted); text-align: center; letter-spacing: 0.5px;
+        }
+        .footer-text span { color: var(--accent); font-weight: 500; }
 
-@app.route("/api/accounts/<acc_id>", methods=["DELETE"])
-@login_required
-def delete_account(acc_id):
-    if acc_id in bot_stop: bot_stop[acc_id].set()
-    ig_clients.pop(acc_id, None)
-    with data_lock:
-        d = load_data()
-        d["accounts"].pop(acc_id, None)
-        save_data(d)
-    return jsonify({"success": True})
+        /* ─── MAIN ─── */
+        .main {
+            flex: 1;
+            background: var(--bg-secondary);
+            backdrop-filter: blur(28px) saturate(1.1);
+            -webkit-backdrop-filter: blur(28px) saturate(1.1);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 18px 22px; overflow-y: auto; height: 100%;
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.04);
+            animation: slideUp 0.5s ease;
+            transition: background var(--transition), border var(--transition);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-@app.route("/api/accounts/<acc_id>/start", methods=["POST"])
-@login_required
-def start_bot(acc_id):
-    with data_lock:
-        d = load_data()
-        acc = d["accounts"].get(acc_id)
-    if not acc: return jsonify({"success": False, "error": "Not found"}), 404
-    if acc_id in bot_threads and bot_threads[acc_id].is_alive():
-        if acc_id in bot_stop: bot_stop[acc_id].set()
-        bot_threads[acc_id].join(timeout=5)
-    start_bot_thread(acc_id, acc)
-    return jsonify({"success": True})
+        /* ─── TOPBAR ─── */
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .greeting { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+        .greeting span { color: var(--accent); font-weight: 400; }
+        .search-wrap { position: relative; display: flex; align-items: center; }
+        .search-wrap input {
+            background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-primary); padding: 7px 12px 7px 32px; border-radius: 40px;
+            font-size: 12px; width: 150px; outline: none; transition: all 0.25s;
+            font-family: 'Inter', sans-serif;
+        }
+        .search-wrap input:focus { border-color: rgba(var(--accent), 0.3); width: 200px; }
+        .search-wrap input::placeholder { color: var(--text-muted); }
+        .search-icon { position: absolute; left: 12px; font-size: 12px; color: var(--text-muted); }
+        .topbar .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
-@app.route("/api/accounts/<acc_id>/stop", methods=["POST"])
-@login_required
-def stop_bot(acc_id):
-    if acc_id in bot_stop: bot_stop[acc_id].set()
-    if acc_id in bot_status:
-        bot_status[acc_id]["running"] = False
-        bot_status[acc_id]["last_action"] = "Stopped"
-    return jsonify({"success": True})
+        /* ─── BUTTONS ─── */
+        .btn {
+            font-family: 'Inter', sans-serif; font-weight: 500; font-size: 11px;
+            padding: 7px 14px; border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);
+            cursor: pointer; transition: all 0.22s ease; backdrop-filter: blur(4px);
+            white-space: nowrap;
+        }
+        .btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff; transform: translateY(-1px); }
+        .btn-primary { background: rgba(var(--accent), 0.15); border-color: rgba(var(--accent), 0.3); color: var(--accent); font-weight: 600; }
+        .btn-primary:hover { background: rgba(var(--accent), 0.25); border-color: rgba(var(--accent), 0.5); }
+        .btn-success { background: rgba(52,199,89,0.1); border-color: rgba(52,199,89,0.25); color: var(--green); }
+        .btn-success:hover { background: rgba(52,199,89,0.2); border-color: rgba(52,199,89,0.4); }
+        .btn-danger { background: rgba(255,69,58,0.1); border-color: rgba(255,69,58,0.25); color: var(--red); }
+        .btn-danger:hover { background: rgba(255,69,58,0.2); border-color: rgba(255,69,58,0.4); }
+        .btn-outline { background: transparent; border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
+        .btn-outline:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: #fff; }
+        .btn-sm-icon { padding: 6px 10px; font-size: 12px; }
 
-@app.route("/api/accounts/<acc_id>/logs")
-@login_required
-def get_logs(acc_id):
-    return jsonify({"logs": list(bot_logs.get(acc_id, []))})
+        /* ─── STATS ─── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px; margin-bottom: 16px;
+        }
+        .stat-card {
+            background: var(--card-bg); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 14px;
+            padding: 12px 14px; transition: all 0.25s ease; animation: fadeUp 0.4s ease backwards;
+        }
+        .stat-card:nth-child(1) { animation-delay: 0.03s; }
+        .stat-card:nth-child(2) { animation-delay: 0.06s; }
+        .stat-card:nth-child(3) { animation-delay: 0.09s; }
+        .stat-card:nth-child(4) { animation-delay: 0.12s; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .stat-card:hover { border-color: rgba(var(--accent), 0.2); transform: translateY(-2px); }
+        .stat-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 500; }
+        .stat-card .number {
+            font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 22px; margin-top: 2px;
+            background: linear-gradient(135deg, var(--accent), #ffffff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .stat-card .sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
 
-@app.route("/api/accounts/start-all", methods=["POST"])
-@login_required
-def start_all():
-    with data_lock:
-        d = load_data()
-        for acc_id, acc in d.get("accounts", {}).items():
-            if acc_id in bot_threads and bot_threads[acc_id].is_alive():
-                continue
-            start_bot_thread(acc_id, acc)
-            time.sleep(0.3)
-    return jsonify({"success": True})
+        /* ─── FILTER BAR ─── */
+        .filter-bar { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .filter-chip {
+            font-size: 10px; font-weight: 500; padding: 4px 11px; border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);
+            color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .filter-chip:hover { background: rgba(255,255,255,0.06); color: #fff; }
+        .filter-chip.active {
+            background: rgba(var(--accent), 0.12); border-color: rgba(var(--accent), 0.25); color: var(--accent);
+        }
+        .filter-bar .spacer { flex: 1; }
+        .theme-btn { font-size: 14px; padding: 4px 8px; border-radius: 40px; border: 1px solid transparent; background: transparent; color: var(--text-dim); cursor: pointer; transition: 0.2s; }
+        .theme-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
 
-@app.route("/api/accounts/stop-all", methods=["POST"])
-@login_required
-def stop_all():
-    for acc_id in list(bot_stop.keys()):
-        bot_stop[acc_id].set()
-    return jsonify({"success": True})
+        /* ─── CARDS ─── */
+        .grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
+        }
+        .card {
+            background: var(--card-bg); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
+            padding: 14px 15px 12px; transition: all var(--transition);
+            position: relative; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            animation: cardAppear 0.4s ease backwards;
+        }
+        .card:nth-child(1) { animation-delay: 0.03s; }
+        .card:nth-child(2) { animation-delay: 0.06s; }
+        .card:nth-child(3) { animation-delay: 0.09s; }
+        .card:nth-child(4) { animation-delay: 0.12s; }
+        .card:nth-child(5) { animation-delay: 0.15s; }
+        .card:nth-child(6) { animation-delay: 0.18s; }
+        @keyframes cardAppear { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .card:hover { transform: translateY(-3px); border-color: rgba(var(--accent), 0.2); box-shadow: 0 12px 36px rgba(0,0,0,0.25); background: rgba(255,255,255,0.07); }
+        .card.running { border-color: rgba(52,199,89,0.25); }
+        .card.running::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #4ade80, transparent); animation: runningBar 2.5s ease-in-out infinite; }
+        @keyframes runningBar { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        .card.cooldown { border-color: rgba(255,159,10,0.2); }
 
-@app.route("/api/accounts/bulk-gc", methods=["POST"])
-@login_required
-def bulk_gc():
-    data = request.json
-    acc_ids = data.get("account_ids", [])
-    action = data.get("action")
-    group_id = data.get("group_id")
-    group_name = data.get("group_name", group_id)
-    if not acc_ids or not group_id or action not in ["add", "remove"]:
-        return jsonify({"error": "Invalid params"}), 400
-    with data_lock:
-        d = load_data()
-        for acc_id in acc_ids:
-            if acc_id not in d["accounts"]: continue
-            acc = d["accounts"][acc_id]
-            groups = [g.strip() for g in acc.get("groups", "").split("\n") if g.strip()]
-            names = [n.strip() for n in acc.get("group_names", "").split("\n") if n.strip()]
-            if action == "add":
-                if group_id not in groups:
-                    groups.append(group_id)
-                    names.append(group_name)
-            else:
-                if group_id in groups:
-                    idx = groups.index(group_id)
-                    groups.pop(idx)
-                    if idx < len(names): names.pop(idx)
-            acc["groups"] = "\n".join(groups)
-            acc["group_names"] = "\n".join(names)
-        save_data(d)
-    return jsonify({"success": True})
+        .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .status-dot.on { background: #4ade80; box-shadow: 0 0 10px rgba(74,222,128,0.5); animation: pulse-dot 2s infinite; }
+        .status-dot.cooldown { background: #ffb340; box-shadow: 0 0 10px rgba(255,179,64,0.4); animation: pulse-dot 2s infinite; }
+        .status-dot.off { background: rgba(255,255,255,0.15); }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+        .card-name { font-weight: 560; font-size: 13px; flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .card-time { font-size: 10px; color: var(--text-muted); font-family: 'Inter', monospace; margin-right: 4px; }
+        .schedule-badge { font-size: 10px; color: var(--blue); opacity: 0.7; cursor: help; margin-left: 2px; }
 
-@app.route("/api/backup/export")
-@login_required
-def export_backup():
-    with data_lock:
-        d = load_data()
-    return jsonify({"data": d})
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 40px;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .status-pill.running { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+        .status-pill.cooldown { background: rgba(255,179,64,0.12); color: var(--orange); border: 1px solid rgba(255,179,64,0.2); }
+        .status-pill.idle { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.06); }
 
-@app.route("/api/backup/import", methods=["POST"])
-@login_required
-def import_backup():
-    data = request.json.get("data", {})
-    if not data or "accounts" not in data:
-        return jsonify({"error": "Invalid backup"}), 400
-    with data_lock:
-        save_data(data)
-    return jsonify({"success": True})
+        .card-stats { display: flex; gap: 10px; font-size: 11px; color: var(--text-dim); margin: 6px 0 8px; }
+        .card-stats strong { color: var(--text-primary); font-weight: 600; }
+        .card-actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+        .btn-sm {
+            font-family: 'Inter', sans-serif; font-weight: 500; font-size: 10px;
+            padding: 3px 9px; border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+            color: var(--text-dim); cursor: pointer; transition: all 0.2s ease;
+        }
+        .btn-sm:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.16); color: #fff; }
+        .btn-sm-start { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); color: var(--green); }
+        .btn-sm-start:hover { background: rgba(74,222,128,0.18); border-color: rgba(74,222,128,0.35); }
+        .btn-sm-stop { background: rgba(255,69,58,0.08); border-color: rgba(255,69,58,0.2); color: var(--red); }
+        .btn-sm-stop:hover { background: rgba(255,69,58,0.18); border-color: rgba(255,69,58,0.35); }
+        .btn-sm-clone { background: rgba(107,140,255,0.06); border-color: rgba(107,140,255,0.15); color: var(--blue); }
+        .btn-sm-clone:hover { background: rgba(107,140,255,0.14); border-color: rgba(107,140,255,0.3); }
+        .btn-sm-del:hover { border-color: var(--red); color: var(--red); }
+        .btn-sm-expand { background: transparent; border: none; color: rgba(255,255,255,0.15); font-size: 12px; cursor: pointer; padding: 2px 4px; margin-left: auto; transition: color 0.2s; }
+        .btn-sm-expand:hover { color: rgba(255,255,255,0.5); }
 
-@app.route("/api/fetch-groups", methods=["POST"])
-@login_required
-def fetch_groups():
-    body = request.json
-    session_id = (body.get("session_id") or "").strip()
-    acc_id = (body.get("acc_id") or "fetch_temp").strip()
-    proxy = (body.get("proxy") or "").strip() or None
-    if not session_id:
-        return jsonify({"success": False, "error": "Session ID required"}), 400
-    try:
-        if acc_id not in ig_clients:
-            cl = Client()
-            if proxy: cl.set_proxy(proxy)
-            cl.login_by_sessionid(decode_session(session_id))
-            ig_clients[acc_id] = cl
-        else:
-            cl = ig_clients[acc_id]
-        threads = cl.direct_threads(amount=50)
-        groups = []
-        for t in threads:
-            if t.is_group:
-                groups.append({"id": str(t.id), "name": t.thread_title or str(t.id)})
-        return jsonify({"success": True, "groups": groups})
-    except Exception as e:
-        ig_clients.pop(acc_id, None)
-        return jsonify({"success": False, "error": str(e)}), 400
+        .card-detail {
+            margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.05);
+            display: none; font-size: 11px; color: var(--text-dim); animation: slideDown 0.2s ease;
+        }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .card-detail.open { display: block; }
+        .gc-pill { display: inline-block; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); padding: 1px 8px; border-radius: 40px; margin: 2px 3px 2px 0; font-size: 10px; color: rgba(255,255,255,0.5); }
+        .detail-line { padding: 2px 0; }
+        .detail-line strong { color: rgba(255,255,255,0.4); font-weight: 500; }
+        .last-action-text { color: var(--accent); font-weight: 500; font-size: 10px; margin-top: 3px; }
 
-@app.route("/api/status")
-@login_required
-def all_status():
-    result = {}
-    for acc_id, st in bot_status.items():
-        s = dict(st)
-        if s.get("started_at") and s.get("running"):
-            s["runtime_secs"] = int(time.time() - s["started_at"])
-        else:
-            s["runtime_secs"] = 0
-        if s.get("cooldown") and s.get("cooldown_end", 0) > 0:
-            s["cooldown_remaining"] = max(0, int(s["cooldown_end"] - time.time()))
-        else:
-            s["cooldown_remaining"] = 0
-        result[acc_id] = s
-    return jsonify(result)
+        /* ─── LOGS ─── */
+        .log-panel { display: none; margin-top: 7px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+        .log-panel.open { display: block; }
+        .log-header { display: flex; justify-content: space-between; padding: 4px 10px; background: rgba(0,0,0,0.2); font-size: 9px; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.04); font-weight: 500; letter-spacing: 0.3px; }
+        .log-live { color: var(--green); display: flex; align-items: center; gap: 4px; }
+        .log-live::before { content: ''; width: 4px; height: 4px; background: #4ade80; border-radius: 50%; animation: live-pulse 1.4s infinite; }
+        @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        .log-box { height: 100px; overflow-y: auto; padding: 5px 10px; font-family: 'Inter', monospace; font-size: 10px; line-height: 1.6; color: rgba(255,255,255,0.4); }
+        .log-line.ok { color: var(--green); }
+        .log-line.err { color: var(--red); }
+        .log-line.warn { color: var(--orange); }
+        .log-line.info { color: var(--blue); }
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+        /* ─── ACTIVITY FEED ─── */
+        .activity-panel {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .activity-panel .feed-title {
+            font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+        .feed-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 3px 0; font-size: 11px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.02);
+        }
+        .feed-item .time { font-size: 9px; color: var(--text-muted); font-family: monospace; flex-shrink: 0; }
+        .feed-item .msg { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .feed-item .badge { font-size: 8px; padding: 1px 6px; border-radius: 40px; background: rgba(255,255,255,0.06); color: var(--text-muted); }
+
+        /* ─── EMPTY ─── */
+        .empty { text-align: center; padding: 50px 20px; color: var(--text-dim); grid-column: 1 / -1; }
+        .empty-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.4; animation: floatIcon 3s ease-in-out infinite; }
+        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .empty-text { font-size: 13px; line-height: 1.5; }
+        .empty-text .hint { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+
+        /* ─── TOASTS ─── */
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast {
+            pointer-events: auto; background: rgba(16,18,28,0.9); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+            padding: 10px 14px; min-width: 220px; max-width: 320px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+            display: flex; align-items: flex-start; gap: 8px;
+            animation: toastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            font-size: 12px; color: var(--text-primary);
+        }
+        .toast.leaving
