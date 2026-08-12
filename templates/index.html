@@ -349,4 +349,1088 @@
             animation: toastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
             font-size: 12px; color: var(--text-primary);
         }
-        .toast.leaving
+        .toast.leaving { animation: toastOut 0.25s ease forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(6px) scale(0.95); } }
+        .toast-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+        .toast-body { flex: 1; line-height: 1.3; }
+        .toast-close { background: none; border: none; color: rgba(255,255,255,0.2); cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1; }
+        .toast-close:hover { color: #fff; }
+        .toast.success { border-color: rgba(74,222,128,0.25); }
+        .toast.error { border-color: rgba(255,69,58,0.25); }
+        .toast.warn { border-color: rgba(255,179,64,0.25); }
+
+        /* ─── CONFIRM ─── */
+        .confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(12px); z-index: 10001; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
+        .confirm-overlay.open { display: flex; }
+        .confirm-box { background: var(--bg-modal); backdrop-filter: blur(32px); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 22px 24px; width: 340px; max-width: 92vw; box-shadow: 0 24px 80px rgba(0,0,0,0.5); animation: slideUp 0.25s ease; }
+        .confirm-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+        .confirm-msg { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
+        .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+        .confirm-actions .dont-ask { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); cursor: pointer; margin-right: auto; }
+        .confirm-actions .dont-ask input { accent-color: var(--accent); }
+
+        /* ─── MODAL ─── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(16px); z-index: 999; align-items: center; justify-content: center; animation: fadeIn 0.2s ease; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--bg-modal); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 22px 24px; width: 680px; max-width: 96vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 32px 100px rgba(0,0,0,0.5); animation: slideUp 0.28s ease; }
+        .modal-title { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px; }
+        .modal-title .hl { color: var(--accent); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: 1 / -1; }
+        label { font-size: 9px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, textarea, select { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); color: var(--text-primary); padding: 8px 11px; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 12px; transition: border 0.2s, box-shadow 0.2s; outline: none; width: 100%; }
+        input:focus, textarea:focus { border-color: rgba(var(--accent), 0.3); box-shadow: 0 0 0 3px var(--accent-glow); }
+        textarea { resize: vertical; min-height: 44px; }
+        .fetch-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+        .btn-fetch { background: rgba(var(--accent), 0.08); border: 1px solid rgba(var(--accent), 0.15); color: var(--accent); padding: 8px 14px; border-radius: 40px; font-weight: 500; cursor: pointer; transition: 0.2s; white-space: nowrap; font-size: 11px; font-family: 'Inter', sans-serif; }
+        .btn-fetch:hover { background: rgba(var(--accent), 0.16); border-color: rgba(var(--accent), 0.3); }
+        #fetch-status { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .gc-picker { margin-top: 7px; display: none; }
+        .gc-list { display: flex; flex-direction: column; gap: 3px; max-height: 120px; overflow-y: auto; }
+        .gc-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; font-size: 11px; color: rgba(255,255,255,0.5); }
+        .gc-item:hover { border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); }
+        .gc-item.selected { border-color: rgba(var(--accent), 0.25); background: rgba(var(--accent), 0.06); }
+        .gc-item input[type=checkbox] { width: 13px; height: 13px; accent-color: var(--accent); cursor: pointer; }
+        .gc-item-name { flex: 1; color: rgba(255,255,255,0.6); }
+        .gc-item-id { font-size: 9px; color: rgba(255,255,255,0.2); }
+        .msgs-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .msg-row { display: flex; gap: 4px; align-items: flex-start; }
+        .msg-row textarea { flex: 1; }
+        .btn-icon { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.2); padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 11px; transition: 0.2s; }
+        .btn-icon:hover { background: rgba(255,69,58,0.1); border-color: rgba(255,69,58,0.2); color: var(--red); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .btn-save { background: rgba(var(--accent), 0.15); border: 1px solid rgba(var(--accent), 0.25); color: var(--accent); font-weight: 600; padding: 9px 20px; border-radius: 40px; cursor: pointer; transition: 0.2s; font-size: 12px; font-family: 'Inter', sans-serif; }
+        .btn-save:hover { background: rgba(var(--accent), 0.25); transform: scale(1.02); }
+        .btn-cancel { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); padding: 9px 16px; border-radius: 40px; cursor: pointer; transition: 0.2s; font-size: 12px; font-family: 'Inter', sans-serif; }
+        .btn-cancel:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .toggle { position: relative; width: 34px; height: 19px; background: rgba(255,255,255,0.08); border-radius: 40px; cursor: pointer; transition: 0.25s; flex-shrink: 0; }
+        .toggle.active { background: var(--accent); }
+        .toggle .knob { position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; background: #0a0a12; border-radius: 50%; transition: 0.25s; }
+        .toggle.active .knob { left: 17px; }
+
+        /* ─── SHORTCUTS CHEATSHEET ─── */
+        .shortcuts-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(16px); z-index: 10002; align-items: center; justify-content: center; animation: fadeIn 0.2s ease;
+        }
+        .shortcuts-overlay.open { display: flex; }
+        .shortcuts-box {
+            background: var(--bg-modal); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px 28px; width: 380px; max-width: 94vw; box-shadow: 0 32px 100px rgba(0,0,0,0.5); animation: slideUp 0.25s ease;
+        }
+        .shortcuts-box h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #fff; }
+        .shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+        .shortcut-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .shortcut-item kbd { font-family: 'Inter', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 10px; color: var(--text-primary); border: 1px solid rgba(255,255,255,0.06); }
+        .shortcuts-close { margin-top: 14px; text-align: right; }
+        .shortcuts-close button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 4px 12px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.06); }
+        .shortcuts-close button:hover { background: rgba(255,255,255,0.05); color: #fff; }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 820px) {
+            .app { flex-direction: column; height: auto; min-height: 100vh; padding: 8px; }
+            .sidebar { width: 100% !important; height: auto; flex-direction: row; flex-wrap: wrap; padding: 10px 14px !important; gap: 6px; align-items: center; min-height: 52px; }
+            .sidebar .logo { margin-bottom: 0; padding-bottom: 0; border-bottom: none; font-size: 15px; }
+            .sidebar .nav { flex-direction: row; flex-wrap: wrap; flex: 1; gap: 3px; }
+            .sidebar .nav-item { padding: 6px 10px; font-size: 12px; }
+            .sidebar .footer-text { display: none; }
+            .hamburger { display: block; }
+            .sidebar.collapsed { width: 100% !important; padding: 8px 12px !important; }
+            .sidebar.collapsed .nav-item { padding: 6px 8px; }
+            .sidebar.collapsed .nav-label { display: inline; }
+            .sidebar.collapsed .logo-text { display: inline; }
+            .main { height: auto; min-height: 65vh; padding: 12px 14px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: auto; }
+            .search-wrap input { width: 110px; }
+            .search-wrap input:focus { width: 140px; }
+        }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; align-items: stretch; }
+            .topbar .actions { justify-content: center; }
+            .topbar-left { justify-content: center; flex-wrap: wrap; }
+            .modal { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="starCanvas"></canvas>
+
+    <!-- ─── APP ─── -->
+    <div class="app" id="app">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo" onclick="toggleSidebar()" title="Toggle sidebar">
+                    <span class="logo-mark">✦</span>
+                    <span class="logo-text"> AURA Z</span>
+                </div>
+                <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
+            </div>
+            <div class="nav">
+                <div class="nav-item active" data-tab="dashboard"><span class="icon">◆</span><span class="nav-label">Dashboard</span></div>
+                <div class="nav-item" data-tab="accounts"><span class="icon">▣</span><span class="nav-label">Accounts</span></div>
+                <div class="nav-item" data-tab="scheduler"><span class="icon">⏰</span><span class="nav-label">Scheduler</span></div>
+                <div class="nav-item" data-tab="settings"><span class="icon">⚙</span><span class="nav-label">Settings</span></div>
+            </div>
+            <div class="footer-text"><span>xSUJAL</span> · v4.0</div>
+        </div>
+
+        <div class="main" id="mainContent">
+            <div class="topbar">
+                <div class="topbar-left">
+                    <div class="greeting">✧ <span>Control Center</span></div>
+                    <div class="search-wrap">
+                        <span class="search-icon">⌕</span>
+                        <input type="text" id="searchInput" placeholder="Search…" oninput="applyFilters()" />
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-success" onclick="startAllBots()">▶ Start All</button>
+                    <button class="btn btn-danger" onclick="stopAllBots()">■ Stop All</button>
+                    <button class="btn btn-outline btn-sm-icon" onclick="toggleAutoRefresh()" id="refreshToggle" title="Toggle auto-refresh">⟳</button>
+                    <button class="btn btn-outline" onclick="exportBackup()">Export</button>
+                    <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">Import</button>
+                    <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importBackup(event)">
+                    <button class="btn btn-primary" onclick="openAddModal()">+ New</button>
+                    <button class="theme-btn" onclick="cycleTheme()" title="Switch theme">🎨</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="label">Accounts</div><div class="number" id="statAccounts">0</div><div class="sub">registered</div></div>
+                <div class="stat-card"><div class="label">Running</div><div class="number" id="statRunning">0</div><div class="sub">active</div></div>
+                <div class="stat-card"><div class="label">Messages Sent</div><div class="number" id="statSent">0</div><div class="sub">total</div></div>
+                <div class="stat-card"><div class="label">Failed</div><div class="number" id="statFailed">0</div><div class="sub">total</div></div>
+            </div>
+
+            <div class="filter-bar">
+                <button class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="filter-chip" data-filter="running" onclick="setFilter('running')">Running</button>
+                <button class="filter-chip" data-filter="cooldown" onclick="setFilter('cooldown')">Cooldown</button>
+                <button class="filter-chip" data-filter="idle" onclick="setFilter('idle')">Idle</button>
+                <span class="spacer"></span>
+                <select id="sortSelect" onchange="applyFilters()" style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);color:var(--text-primary);padding:4px 8px;border-radius:40px;font-size:10px;font-family:'Inter',sans-serif;outline:none;">
+                    <option value="name">Sort: Name</option>
+                    <option value="sent">Sort: Sent</option>
+                    <option value="runtime">Sort: Runtime</option>
+                </select>
+            </div>
+
+            <div class="grid" id="accounts-wrap"></div>
+
+            <!-- ─── ACTIVITY FEED ─── -->
+            <div class="activity-panel" id="activityPanel">
+                <div class="feed-title">⏱ Recent Activity</div>
+                <div id="activityFeed"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── TOASTS ─── -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ─── CONFIRM ─── -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <div class="confirm-title" id="confirmTitle">Confirm</div>
+            <div class="confirm-msg" id="confirmMsg"></div>
+            <div class="confirm-actions">
+                <label class="dont-ask"><input type="checkbox" id="dontAskConfirm" /> Don't ask again</label>
+                <button class="btn-cancel" onclick="resolveConfirm(false)">Cancel</button>
+                <button class="btn-save" id="confirmOkBtn" onclick="resolveConfirm(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── SHORTCUTS ─── -->
+    <div class="shortcuts-overlay" id="shortcutsOverlay">
+        <div class="shortcuts-box">
+            <h2>⌨️ Keyboard Shortcuts</h2>
+            <div class="shortcuts-grid">
+                <div class="shortcut-item"><span>New Account</span><kbd>N</kbd></div>
+                <div class="shortcut-item"><span>Close Modal</span><kbd>Esc</kbd></div>
+                <div class="shortcut-item"><span>Focus Search</span><kbd>F</kbd></div>
+                <div class="shortcut-item"><span>Start All</span><kbd>S</kbd></div>
+                <div class="shortcut-item"><span>Stop All</span><kbd>X</kbd></div>
+                <div class="shortcut-item"><span>Export Backup</span><kbd>Ctrl+Shift+E</kbd></div>
+                <div class="shortcut-item"><span>Toggle Theme</span><kbd>T</kbd></div>
+                <div class="shortcut-item"><span>Refresh</span><kbd>R</kbd></div>
+            </div>
+            <div class="shortcuts-close"><button onclick="closeShortcuts()">Close</button></div>
+        </div>
+    </div>
+
+    <!-- ─── MODAL ─── -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-title"><span class="hl">✦</span> <span id="modal-title">Add Account</span></div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        // ─── STAR SYSTEM ──────────────────────────────────────────
+        (function() {
+            const canvas = document.getElementById('starCanvas');
+            const ctx = canvas.getContext('2d');
+            let stars = [], running = true;
+            let mouseX = 0.5, mouseY = 0.5;
+            const isMobile = window.innerWidth < 700;
+            const NUM = isMobile ? 50 : 120;
+            const CONN = isMobile ? 80 : 130;
+            const SPEED = 0.08;
+
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize); resize();
+            window.addEventListener('mousemove', e => { mouseX = e.clientX / window.innerWidth; mouseY = e.clientY / window.innerHeight; });
+
+            class Star {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 2 + 1;
+                    this.vx = (Math.random() - 0.5) * SPEED * 2;
+                    this.vy = (Math.random() - 0.5) * SPEED * 2;
+                    this.tw = Math.random() * Math.PI * 2;
+                    this.twS = 0.004 + Math.random() * 0.012;
+                    this.a = 0.4 + Math.random() * 0.5;
+                }
+                update() {
+                    this.x += this.vx + (mouseX - 0.5) * 0.12;
+                    this.y += this.vy + (mouseY - 0.5) * 0.08;
+                    if (this.x < 0) this.x = canvas.width;
+                    if (this.x > canvas.width) this.x = 0;
+                    if (this.y < 0) this.y = canvas.height;
+                    if (this.y > canvas.height) this.y = 0;
+                    this.tw += this.twS;
+                }
+                draw() {
+                    const a = this.a * (0.7 + 0.3 * Math.sin(this.tw));
+                    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
+                    g.addColorStop(0, `rgba(200,210,235,${a * 0.3})`);
+                    g.addColorStop(0.6, `rgba(200,210,235,${a * 0.06})`);
+                    g.addColorStop(1, 'rgba(200,210,235,0)');
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = g; ctx.fill();
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(220,225,245,${a * 0.85})`; ctx.fill();
+                }
+            }
+            for (let i = 0; i < NUM; i++) stars.push(new Star());
+
+            function drawLines() {
+                for (let i = 0; i < stars.length; i++) {
+                    for (let j = i + 1; j < stars.length; j++) {
+                        const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
+                        const d = Math.sqrt(dx * dx + dy * dy);
+                        if (d < CONN) {
+                            const a = (1 - d / CONN) * 0.1;
+                            const t = (0.8 + 0.2 * Math.sin(stars[i].tw)) * (0.8 + 0.2 * Math.sin(stars[j].tw));
+                            ctx.beginPath();
+                            ctx.moveTo(stars[i].x, stars[i].y);
+                            ctx.lineTo(stars[j].x, stars[j].y);
+                            ctx.strokeStyle = `rgba(175,190,220,${a * t})`;
+                            ctx.lineWidth = 0.5; ctx.stroke();
+                        }
+                    }
+                }
+            }
+            function loop() {
+                if (running) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    for (const s of stars) { s.update(); s.draw(); }
+                    drawLines();
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+            document.addEventListener('visibilitychange', () => { running = !document.hidden; });
+            window.addEventListener('resize', resize);
+        })();
+
+        // ─── APP STATE ────────────────────────────────────────────
+        let accounts = {}, editingId = null, fetchedGroups = [], selectedGCs = [];
+        let currentFilter = 'all', searchQuery = '', isLoading = true, confirmResolver = null;
+        let autoRefresh = true, refreshInterval = null, themeIndex = 0, activityLog = [];
+        const THEMES = ['dark', 'silver', 'cosmic'];
+        let confirmDontAskMap = {};
+
+        function $(id) { return document.getElementById(id); }
+
+        // ─── TOASTS ──────────────────────────────────────────────
+        function toast(msg, type = 'info', duration = 3000) {
+            const container = $('toastContainer');
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            const icons = { success: '✓', error: '✕', warn: '⚠', info: '✧' };
+            el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><div class="toast-body">${msg}</div><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
+            container.appendChild(el);
+            setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 250); }, duration);
+        }
+
+        // ─── CONFIRM ──────────────────────────────────────────────
+        function confirmDialog(title, msg, okLabel = 'Confirm', id = 'default') {
+            return new Promise(resolve => {
+                const dontAsk = localStorage.getItem('dontAsk_' + id) === 'true';
+                if (dontAsk) { resolve(true); return; }
+                confirmResolver = resolve;
+                $('confirmTitle').textContent = title;
+                $('confirmMsg').textContent = msg;
+                $('confirmOkBtn').textContent = okLabel;
+                $('dontAskConfirm').checked = false;
+                $('confirmOverlay').classList.add('open');
+                // Store id for the don't ask checkbox
+                $('dontAskConfirm').dataset.id = id;
+            });
+        }
+        function resolveConfirm(val) {
+            const id = $('dontAskConfirm').dataset.id || 'default';
+            if ($('dontAskConfirm').checked) {
+                localStorage.setItem('dontAsk_' + id, 'true');
+                confirmDontAskMap[id] = true;
+            }
+            $('confirmOverlay').classList.remove('open');
+            if (confirmResolver) confirmResolver(val);
+            confirmResolver = null;
+        }
+
+        // ─── SIDEBAR ──────────────────────────────────────────────
+        function toggleSidebar() {
+            const el = $('sidebar');
+            el.classList.toggle('collapsed');
+            localStorage.setItem('sidebarCollapsed', el.classList.contains('collapsed'));
+        }
+
+        // ─── THEME ────────────────────────────────────────────────
+        function cycleTheme() {
+            themeIndex = (themeIndex + 1) % THEMES.length;
+            document.documentElement.setAttribute('data-theme', THEMES[themeIndex]);
+            localStorage.setItem('theme', THEMES[themeIndex]);
+            toast('Theme: ' + THEMES[themeIndex], 'info');
+        }
+        function loadTheme() {
+            const saved = localStorage.getItem('theme');
+            if (saved && THEMES.includes(saved)) {
+                themeIndex = THEMES.indexOf(saved);
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        }
+
+        // ─── AUTO-REFRESH ─────────────────────────────────────────
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = $('refreshToggle');
+            if (autoRefresh) {
+                btn.textContent = '⟳';
+                btn.style.opacity = '1';
+                startRefresh();
+                toast('Auto-refresh resumed', 'info');
+            } else {
+                btn.textContent = '⏸';
+                btn.style.opacity = '0.6';
+                if (refreshInterval) clearInterval(refreshInterval);
+                toast('Auto-refresh paused', 'warn');
+            }
+        }
+        function startRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            if (autoRefresh) refreshInterval = setInterval(() => { if (!document.hidden) loadAccounts(); }, 4000);
+        }
+
+        // ─── FILTER / SORT ──────────────────────────────────────
+        function setFilter(f) {
+            currentFilter = f;
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+            applyFilters();
+        }
+        function applyFilters() {
+            searchQuery = ($('searchInput').value || '').toLowerCase().trim();
+            renderAccounts(accounts);
+        }
+
+        // ─── FETCH GROUPS ─────────────────────────────────────────
+        async function fetchGroups() {
+            const sid = $('f-sid').value.trim();
+            if (!sid) { toast('Enter Session ID first', 'warn'); return; }
+            const proxy = $('f-proxy').value.trim();
+            const statusEl = $('fetch-status');
+            statusEl.textContent = '⚡ Fetching…'; statusEl.style.color = '#ffb340';
+            try {
+                const r = await fetch('/api/fetch-groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sid, acc_id: editingId || 'fetch_temp', proxy })
+                });
+                const d = await r.json();
+                if (d.groups && d.groups.length > 0) {
+                    fetchedGroups = d.groups;
+                    statusEl.textContent = `✅ ${d.groups.length} GCs found`;
+                    statusEl.style.color = '#4ade80';
+                    selectedGCs = [];
+                    // ✅ SELECT ALL GROUPS – NO LIMIT
+                    for (let i = 0; i < d.groups.length; i++) {
+                        selectedGCs.push({ id: d.groups[i].id, name: d.groups[i].name });
+                    }
+                    renderGCPicker();
+                    syncGroupsField();
+                    toast(`Found ${d.groups.length} groups`, 'success');
+                } else {
+                    statusEl.textContent = '⚠️ No GCs found';
+                    statusEl.style.color = '#ffb340';
+                    toast('No groups found', 'warn');
+                }
+            } catch (e) {
+                statusEl.textContent = `❌ ${e.message}`;
+                statusEl.style.color = '#ff6b61';
+                toast('Fetch failed: ' + e.message, 'error');
+            }
+        }
+        function renderGCPicker() {
+            const picker = $('gc-picker'),
+                list = $('gc-list');
+            picker.style.display = 'block';
+            list.innerHTML = '';
+            fetchedGroups.forEach(g => {
+                const isSelected = selectedGCs.some(s => s.id === g.id);
+                const item = document.createElement('div');
+                item.className = 'gc-item' + (isSelected ? ' selected' : '');
+                item.innerHTML =
+                    `<input type="checkbox" ${isSelected ? 'checked' : ''} data-id="${g.id}" data-name="${g.name}"/><span class="gc-item-name">${g.name}</span><span class="gc-item-id">${g.id}</span>`;
+                const cb = item.querySelector('input');
+                cb.addEventListener('change', () => toggleGC(g.id, g.name, cb, item));
+                list.appendChild(item);
+            });
+            updateGCCount();
+        }
+        function toggleGC(id, name, cb, item) {
+            if (cb.checked) {
+                // ✅ NO MAX LIMIT – ALLOW ANY NUMBER
+                selectedGCs.push({ id, name });
+                item.classList.add('selected');
+            } else {
+                selectedGCs = selectedGCs.filter(s => s.id !== id);
+                item.classList.remove('selected');
+            }
+            updateGCCount();
+            syncGroupsField();
+        }
+        function updateGCCount() { const el = $('gc-count'); if (el) el.textContent = selectedGCs.length; }
+        function syncGroupsField() {
+            const el = $('f-groups');
+            if (el) el.value = selectedGCs.map(s => s.id).join('\n');
+            const el2 = $('f-gnames');
+            if (el2) el2.value = selectedGCs.map(s => s.name).join('\n');
+        }
+
+        // ─── MESSAGES ─────────────────────────────────────────────
+        function addMsgField(val = '') {
+            const wrap = $('msgs-wrap');
+            const row = document.createElement('div');
+            row.className = 'msg-row';
+            row.innerHTML =
+                `<textarea placeholder="Type your message…" rows="3">${val}</textarea><button class="btn-icon" onclick="this.parentElement.remove()">✕</button>`;
+            wrap.appendChild(row);
+        }
+        function getMsgs() { return [...document.querySelectorAll('#msgs-wrap textarea')].map(t => t.value.trim()).filter(
+            Boolean); }
+
+        function setMsgs(raw) {
+            $('msgs-wrap').innerHTML = '';
+            const parts = (raw || '').split('---MSG---').map(s => s.trim()).filter(Boolean);
+            if (parts.length === 0) { addMsgField("🔥 Hey! How's everything going?"); return; }
+            parts.forEach(p => addMsgField(p));
+        }
+
+        // ─── MODAL ─────────────────────────────────────────────────
+        function openAddModal() {
+            editingId = null;
+            fetchedGroups = [];
+            selectedGCs = [];
+            $('modal-title').textContent = 'Add Account';
+            resetFormFields();
+            setMsgs('');
+            $('modal').classList.add('open');
+        }
+        function openEditModal(id) {
+            editingId = id;
+            const acc = accounts[id];
+            selectedGCs = [];
+            const savedGroups = acc.groups ? acc.groups.split('\n').filter(Boolean) : [];
+            const savedNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
+            savedGroups.forEach((gid, i) => selectedGCs.push({ id: gid.trim(), name: (savedNames[i] || gid).trim() }));
+            fetchedGroups = selectedGCs.map(s => ({ id: s.id, name: s.name }));
+            $('modal-title').textContent = 'Edit Account';
+            $('f-name').value = acc.name || '';
+            $('f-sid').value = acc.session_id || '';
+            $('f-csrf').value = acc.csrf_token || '';
+            $('f-proxy').value = acc.proxy || '';
+            $('f-titles').value = acc.nc_titles || '';
+            $('f-msg-min').value = acc.msg_delay_min || '2';
+            $('f-msg-max').value = acc.msg_delay_max || '5';
+            $('f-nc-every-msgs').value = acc.nc_every_msgs || '0';
+            $('f-nc-mode').value = acc.nc_mode || 'global';
+            $('f-cooldown-after').value = acc.cooldown_after || '0';
+            $('f-cooldown-dur').value = acc.cooldown_dur || '5';
+            $('f-groups').value = savedGroups.join('\n');
+            $('f-gnames').value = savedNames.join('\n');
+            $('fetch-status').textContent = '';
+            $('f-schedule-start').value = acc.schedule_start || '09:00';
+            $('f-schedule-stop').value = acc.schedule_stop || '18:00';
+            const enabled = !!acc.schedule_enabled;
+            $('f-schedule-enabled').value = enabled ? 'true' : 'false';
+            const toggle = $('scheduleToggle');
+            if (enabled) toggle.classList.add('active');
+            else toggle.classList.remove('active');
+
+            // fetch settings
+            $('fetch-enabled-toggle').classList.toggle('active', !!acc.fetch_enabled);
+            $('f-fetch-enabled').value = acc.fetch_enabled ? 'true' : 'false';
+            $('f-fetch-interval').value = acc.fetch_interval || 300;
+
+            if (selectedGCs.length > 0) renderGCPicker();
+            else { $('gc-picker').style.display = 'none';
+                $('gc-list').innerHTML = ''; }
+            setMsgs(acc.messages || '');
+            $('modal').classList.add('open');
+        }
+        function resetFormFields() {
+            ['f-name', 'f-sid', 'f-csrf', 'f-proxy', 'f-titles', 'f-groups', 'f-gnames'].forEach(id => { const el = $(id);
+                if (el) el.value = ''; });
+            $('f-msg-min').value = '2';
+            $('f-msg-max').value = '5';
+            $('f-nc-every-msgs').value = '0';
+            $('f-nc-mode').value = 'global';
+            $('f-cooldown-after').value = '0';
+            $('f-cooldown-dur').value = '5';
+            $('gc-picker').style.display = 'none';
+            $('gc-list').innerHTML = '';
+            $('gc-count').textContent = '0';
+            $('fetch-status').textContent = '';
+            $('f-schedule-start').value = '09:00';
+            $('f-schedule-stop').value = '18:00';
+            $('f-schedule-enabled').value = 'false';
+            $('scheduleToggle').classList.remove('active');
+            // Reset fetch settings
+            $('fetch-enabled-toggle').classList.remove('active');
+            $('f-fetch-enabled').value = 'false';
+            $('f-fetch-interval').value = 300;
+        }
+
+        function cloneAccount(id) {
+            const acc = accounts[id];
+            if (!acc) return;
+            editingId = null;
+            selectedGCs = [];
+            const savedGroups = acc.groups ? acc.groups.split('\n').filter(Boolean) : [];
+            const savedNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
+            savedGroups.forEach((gid, i) => selectedGCs.push({ id: gid.trim(), name: (savedNames[i] || gid).trim() }));
+            fetchedGroups = selectedGCs.map(s => ({ id: s.id, name: s.name }));
+            $('modal-title').textContent = 'Clone Account';
+            $('f-name').value = (acc.name || '') + ' (clone)';
+            $('f-sid').value = '';
+            $('f-csrf').value = acc.csrf_token || '';
+            $('f-proxy').value = acc.proxy || '';
+            $('f-titles').value = acc.nc_titles || '';
+            $('f-msg-min').value = acc.msg_delay_min || '2';
+            $('f-msg-max').value = acc.msg_delay_max || '5';
+            $('f-nc-every-msgs').value = acc.nc_every_msgs || '0';
+            $('f-nc-mode').value = acc.nc_mode || 'global';
+            $('f-cooldown-after').value = acc.cooldown_after || '0';
+            $('f-cooldown-dur').value = acc.cooldown_dur || '5';
+            $('f-groups').value = savedGroups.join('\n');
+            $('f-gnames').value = savedNames.join('\n');
+            $('fetch-status').textContent = '';
+            $('f-schedule-start').value = acc.schedule_start || '09:00';
+            $('f-schedule-stop').value = acc.schedule_stop || '18:00';
+            $('f-schedule-enabled').value = acc.schedule_enabled ? 'true' : 'false';
+            const toggle = $('scheduleToggle');
+            if (acc.schedule_enabled) toggle.classList.add('active');
+            else toggle.classList.remove('active');
+            // Fetch settings
+            $('fetch-enabled-toggle').classList.toggle('active', !!acc.fetch_enabled);
+            $('f-fetch-enabled').value = acc.fetch_enabled ? 'true' : 'false';
+            $('f-fetch-interval').value = acc.fetch_interval || 300;
+            if (selectedGCs.length > 0) renderGCPicker();
+            else { $('gc-picker').style.display = 'none';
+                $('gc-list').innerHTML = ''; }
+            setMsgs(acc.messages || '');
+            $('modal').classList.add('open');
+            toast('Cloned account config, enter new session ID', 'info');
+        }
+
+        function closeModal() { $('modal').classList.remove('open');
+            editingId = null; }
+
+        function toggleScheduleSwitch() {
+            const toggle = $('scheduleToggle'),
+                hidden = $('f-schedule-enabled');
+            toggle.classList.toggle('active');
+            hidden.value = toggle.classList.contains('active') ? 'true' : 'false';
+        }
+
+        function toggleFetchSwitch() {
+            const toggle = $('fetch-enabled-toggle'),
+                hidden = $('f-fetch-enabled');
+            toggle.classList.toggle('active');
+            hidden.value = toggle.classList.contains('active') ? 'true' : 'false';
+        }
+
+        function getModalForm() {
+            return `
+                    <div class="form-grid">
+                        <div class="form-group"><label>Name</label><input id="f-name" placeholder="My Bot"/></div>
+                        <div class="form-group"><label>Session ID</label><input id="f-sid" placeholder="sessionid" autocomplete="off"/></div>
+                        <div class="form-group"><label>CSRF Token</label><input id="f-csrf" placeholder="csrftoken (optional)"/></div>
+                        <div class="form-group"><label>Proxy</label><input id="f-proxy" placeholder="http://user:pass@ip:port"/></div>
+                        <div class="form-group full"><label>Groups (one per line)</label>
+                            <textarea id="f-groups" rows="4" placeholder="1234567890&#10;0987654321"></textarea></div>
+                        <div class="form-group full"><label>Group Names (same order, optional)</label>
+                            <textarea id="f-gnames" rows="4" placeholder="Group1&#10;Group2"></textarea></div>
+                        <div class="form-group"><label>NC Titles (comma)</label><input id="f-titles" placeholder="Title1, Title2"/></div>
+                        <div class="form-group full"><label>Messages</label>
+                            <div class="msgs-wrap" id="msgs-wrap"></div>
+                            <button class="btn-fetch" style="width:100%;margin-top:4px;" onclick="addMsgField()">+ Add Message</button></div>
+                        <div class="form-group"><label>Min Delay (s)</label><input id="f-msg-min" type="number" value="2" step="0.5"/></div>
+                        <div class="form-group"><label>Max Delay (s)</label><input id="f-msg-max" type="number" value="5" step="0.5"/></div>
+                        <div class="form-group"><label>NC every N msgs</label><input id="f-nc-every-msgs" type="number" value="0"/></div>
+                        <div class="form-group"><label>NC Mode</label>
+                            <select id="f-nc-mode">
+                                <option value="global">Global (all groups after N msgs)</option>
+                                <option value="per_group">Per Group (each group after N msgs)</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Cooldown after N msgs</label><input id="f-cooldown-after" type="number" value="0"/></div>
+                        <div class="form-group"><label>Cooldown Duration (min)</label><input id="f-cooldown-dur" type="number" value="5" step="0.5"/></div>
+                        <div class="form-group full">
+                            <div class="fetch-row">
+                                <div style="flex:1"><label>Fetch Groups</label></div>
+                                <button class="btn-fetch" onclick="fetchGroups()">⚡ Fetch GCs</button>
+                            </div>
+                            <div id="fetch-status"></div>
+                            <div class="gc-picker" id="gc-picker">
+                                <div class="gc-list" id="gc-list"></div>
+                                <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.3);"><span id="gc-count">0</span> selected</div>
+                            </div>
+                        </div>
+                        <!-- NEW: Auto-fetch settings -->
+                        <div class="form-group full" style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <label style="margin:0;">🔄 Auto-fetch new groups</label>
+                            <div class="toggle" id="fetch-enabled-toggle" onclick="toggleFetchSwitch()"><div class="knob"></div></div>
+                            <input type="hidden" id="f-fetch-enabled" value="false"/>
+                            <label style="margin:0;margin-left:6px;">Interval (s)</label>
+                            <input type="number" id="f-fetch-interval" value="300" min="60" step="30" style="width:100px;"/>
+                            <span style="font-size:9px;color:var(--text-muted);">min 60s</span>
+                        </div>
+                        <div class="form-group full" style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+                            <label style="margin:0;">⏰ Schedule</label>
+                            <input type="time" id="f-schedule-start" value="09:00" style="width:100px;"/>
+                            <span style="color:rgba(255,255,255,0.2);">→</span>
+                            <input type="time" id="f-schedule-stop" value="18:00" style="width:100px;"/>
+                            <div class="toggle" id="scheduleToggle" onclick="toggleScheduleSwitch()"><div class="knob"></div></div>
+                            <input type="hidden" id="f-schedule-enabled" value="false"/>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                        <button class="btn-save" onclick="saveAccount()">Save</button>
+                    </div>`;
+        }
+
+        async function saveAccount() {
+            const msgs = getMsgs();
+            if (!msgs.length) { toast('Add at least one message', 'warn'); return; }
+            let finalGroups = selectedGCs;
+            if (finalGroups.length === 0) {
+                const manualGroups = $('f-groups').value.trim();
+                const manualNames = $('f-gnames').value.trim();
+                if (manualGroups) {
+                    const gids = manualGroups.split('\n').filter(Boolean);
+                    const gnames = manualNames ? manualNames.split('\n').filter(Boolean) : [];
+                    finalGroups = gids.map((id, i) => ({ id: id.trim(), name: gnames[i] ? gnames[i].trim() : id.trim() }));
+                }
+            }
+            const body = {
+                name: $('f-name').value.trim(),
+                session_id: $('f-sid').value.trim(),
+                csrf_token: $('f-csrf').value.trim(),
+                proxy: $('f-proxy').value.trim(),
+                groups: finalGroups.map(s => s.id).join('\n'),
+                group_names: finalGroups.map(s => s.name).join('\n'),
+                nc_titles: $('f-titles').value.trim(),
+                messages: msgs.join('---MSG---'),
+                msg_delay_min: parseFloat($('f-msg-min').value) || 2,
+                msg_delay_max: parseFloat($('f-msg-max').value) || 5,
+                nc_every_msgs: parseInt($('f-nc-every-msgs').value) || 0,
+                nc_mode: $('f-nc-mode').value,
+                cooldown_after: parseInt($('f-cooldown-after').value) || 0,
+                cooldown_dur: parseFloat($('f-cooldown-dur').value) || 5,
+                schedule_enabled: $('f-schedule-enabled').value === 'true',
+                schedule_start: $('f-schedule-start').value,
+                schedule_stop: $('f-schedule-stop').value,
+                fetch_enabled: $('f-fetch-enabled').value === 'true',
+                fetch_interval: parseInt($('f-fetch-interval').value) || 300
+            };
+            if (!body.name) { toast('Enter account name', 'warn'); return; }
+            if (!body.session_id && !editingId) { toast('Session ID required', 'warn'); return; }
+            const url = editingId ? `/api/accounts/${editingId}` : '/api/accounts';
+            const method = editingId ? 'PUT' : 'POST';
+            try {
+                const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(
+                        body) });
+                const d = await r.json();
+                if (d.success) { closeModal();
+                    loadAccounts();
+                    toast(editingId ? 'Account updated' : 'Account created', 'success'); } else toast(d.error ||
+                    'Save failed', 'error');
+            } catch (e) { toast('Save failed: ' + e.message, 'error'); }
+        }
+
+        // ─── CONTROLS ─────────────────────────────────────────────
+        async function startBot(id) {
+            try {
+                const r = await fetch(`/api/accounts/${id}/start`, { method: 'POST' });
+                const d = await r.json();
+                if (d.success) { toast('Bot started', 'success');
+                    addActivity(id, '▶ Started'); } else toast(d.error || 'Start failed', 'error');
+            } catch (e) { toast('Start failed', 'error'); }
+        }
+        async function stopBot(id) {
+            await fetch(`/api/accounts/${id}/stop`, { method: 'POST' });
+            toast('Bot stopped', 'info');
+            addActivity(id, '■ Stopped');
+        }
+        async function deleteAcc(id) {
+            const ok = await confirmDialog('Delete Account', 'This cannot be undone. Delete this account?', 'Delete',
+            'delete_' + id);
+            if (!ok) return;
+            await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+            loadAccounts();
+            toast('Account deleted', 'info');
+            addActivity(id, '🗑 Deleted');
+        }
+
+        function toggleLogs(id) { const el = $(`log-panel-${id}`); if (el) el.classList.toggle('open'); }
+
+        function toggleDetail(id) { const el = $(`detail-${id}`); if (el) el.classList.toggle('open'); }
+
+        async function startAllBots() {
+            const ok = await confirmDialog('Start All', 'Start all idle bots?', 'Start All', 'startAll');
+            if (!ok) return;
+            await fetch('/api/accounts/start-all', { method: 'POST' });
+            loadAccounts();
+            toast('All bots starting…', 'success');
+            addActivity('all', '▶ Started all');
+        }
+        async function stopAllBots() {
+            const ok = await confirmDialog('Stop All', 'Stop all running bots?', 'Stop All', 'stopAll');
+            if (!ok) return;
+            await fetch('/api/accounts/stop-all', { method: 'POST' });
+            loadAccounts();
+            toast('All bots stopped', 'info');
+            addActivity('all', '■ Stopped all');
+        }
+
+        async function exportBackup() {
+            try {
+                const r = await fetch('/api/backup/export');
+                const data = await r.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `aura_z_backup_${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast('Backup exported', 'success');
+            } catch (e) { toast('Export failed', 'error'); }
+        }
+        async function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                if (!data.accounts) { toast('Invalid backup file', 'error'); return; }
+                await fetch('/api/backup/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data }) });
+                toast('Backup imported', 'success');
+                loadAccounts();
+            } catch (e) { toast('Import failed: ' + e.message, 'error'); }
+            event.target.value = '';
+        }
+
+        // ─── ACTIVITY FEED ────────────────────────────────────────
+        function addActivity(id, msg) {
+            const time = new Date().toLocaleTimeString();
+            const name = accounts[id]?.name || id;
+            activityLog.unshift({ time, id, name, msg });
+            if (activityLog.length > 50) activityLog.pop();
+            renderActivity();
+        }
+
+        function renderActivity() {
+            const el = $('activityFeed');
+            if (!el) return;
+            if (activityLog.length === 0) { el.innerHTML =
+                    '<div style="font-size:11px;color:rgba(255,255,255,0.15);padding:4px 0;">No activity yet.</div>'; return; }
+            el.innerHTML = activityLog.slice(0, 15).map(a =>
+                `<div class="feed-item"><span class="time">${a.time}</span><span class="msg">${a.name}: ${a.msg}</span></div>`
+            ).join('');
+        }
+
+        // ─── SHORTCUTS ────────────────────────────────────────────
+        function openShortcuts() { $('shortcutsOverlay').classList.add('open'); }
+
+        function closeShortcuts() { $('shortcutsOverlay').classList.remove('open'); }
+
+        // ─── RENDER ───────────────────────────────────────────────
+        function fmtTime(secs) {
+            if (!secs || secs < 0) return '--:--:--';
+            const h = Math.floor(secs / 3600),
+                m = Math.floor((secs % 3600) / 60),
+                s = Math.floor(secs % 60);
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+
+        function getStatus(st) {
+            if (st.running) return 'running';
+            if (st.cooldown) return 'cooldown';
+            return 'idle';
+        }
+
+        function renderSkeletons() {
+            const wrap = $('accounts-wrap');
+            wrap.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                wrap.innerHTML +=
+                    `<div class="skeleton-card" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);border-radius:16px;padding:16px;height:120px;position:relative;overflow:hidden;"><div style="height:10px;border-radius:6px;background:rgba(255,255,255,0.05);margin-bottom:10px;width:65%;"></div><div style="height:10px;border-radius:6px;background:rgba(255,255,255,0.05);margin-bottom:10px;width:40%;"></div><div style="height:10px;border-radius:6px;background:rgba(255,255,255,0.05);width:80%;"></div></div>`;
+            }
+        }
+
+        function renderAccounts(data) {
+            const wrap = $('accounts-wrap');
+            let ids = Object.keys(data);
+            const sortBy = $('sortSelect')?.value || 'name';
+            ids.sort((a, b) => {
+                const accA = data[a],
+                    accB = data[b];
+                if (sortBy === 'name') return (accA.name || a).localeCompare(accB.name || b);
+                if (sortBy === 'sent') return (accB.status?.sent || 0) - (accA.status?.sent || 0);
+                if (sortBy === 'runtime') return (accB.status?.runtime_secs || 0) - (accA.status?.runtime_secs || 0);
+                return 0;
+            });
+            ids = ids.filter(id => {
+                const acc = data[id],
+                    st = acc.status || {},
+                    status = getStatus(st);
+                if (currentFilter !== 'all' && status !== currentFilter) return false;
+                if (searchQuery) { const name = (acc.name || id).toLowerCase(); if (!name.includes(searchQuery)) return false; }
+                return true;
+            });
+            let totalRunning = 0,
+                totalSent = 0,
+                totalFailed = 0;
+            Object.keys(data).forEach(id => {
+                const st = data[id].status || {};
+                if (st.running) totalRunning++;
+                totalSent += st.sent || 0;
+                totalFailed += st.failed || 0;
+            });
+            animateNumber('statAccounts', Object.keys(data).length);
+            animateNumber('statRunning', totalRunning);
+            animateNumber('statSent', totalSent);
+            animateNumber('statFailed', totalFailed);
+
+            if (isLoading && ids.length === 0 && Object.keys(data).length === 0) { renderSkeletons(); return; }
+
+            if (ids.length === 0) {
+                const msg = searchQuery || currentFilter !== 'all' ? 'No accounts match your filter.' :
+                    'No accounts yet.';
+                wrap.innerHTML =
+                    `<div class="empty"><div class="empty-icon">✦</div><div class="empty-text">${msg}<span class="hint">${!searchQuery && currentFilter === 'all' ? 'Press N or click + New to get started.' : 'Try changing the filter or search.'}</span></div></div>`;
+                return;
+            }
+
+            const keep = new Set(ids.map(id => `card-${id}`));
+            wrap.querySelectorAll('.card, .skeleton-card, .empty').forEach(el => { if (!keep.has(el.id)) el.remove(); });
+
+            ids.forEach(id => {
+                const acc = data[id],
+                    st = acc.status || {},
+                    status = getStatus(st);
+                const runtime = st.runtime_secs ? fmtTime(st.runtime_secs) : '--:--:--';
+                const cooldownStr = st.cooldown && st.cooldown_remaining > 0 ? ' · ' + fmtTime(st.cooldown_remaining) :
+                '';
+                const gcNames = acc.group_names ? acc.group_names.split('\n').filter(Boolean) : [];
+                const pillLabel = status === 'running' ? 'Running' : status === 'cooldown' ? 'Cooldown' : 'Idle';
+                const hasSchedule = acc.schedule_enabled;
+                const fetchInfo = acc.fetch_enabled ? `🔄 ${acc.fetch_interval || 300}s` : '';
+                const ncMode = acc.nc_mode || 'global';
+
+                let existing = $(`card-${id}`);
+                if (!existing) {
+                    existing = document.createElement('div');
+                    existing.className = 'card';
+                    existing.id = `card-${id}`;
+                    wrap.appendChild(existing);
+                }
+                existing.className = `card ${status}`;
+                const logOpen = $(`log-panel-${id}`)?.classList.contains('open') || false;
+                const detailOpen = $(`detail-${id}`)?.classList.contains('open') || false;
+
+                existing.innerHTML = `
+                        <div class="card-top">
+                            <div class="status-dot ${status === 'running' ? 'on' : status === 'cooldown' ? 'cooldown' : 'off'}"></div>
+                            <div class="card-name">${acc.name || id}</div>
+                            <div class="card-time">${runtime}</div>
+                            ${hasSchedule ? '<span class="schedule-badge" title="Schedule enabled">⏰</span>' : ''}
+                            ${fetchInfo ? '<span class="schedule-badge" title="Auto-fetch enabled">🔄</span>' : ''}
+                            ${ncMode === 'per_group' ? '<span class="schedule-badge" title="Per-Group NC mode">🔁</span>' : ''}
+                        </div>
+                        <div style="margin-bottom:4px;"><span class="status-pill ${status}">${pillLabel}${cooldownStr}</span></div>
+                        <div class="card-stats">
+                            <span><strong>${st.sent || 0}</strong> sent</span>
+                            <span><strong>${st.failed || 0}</strong> fail</span>
+                            <span><strong>${st.nc_done || 0}</strong> NC</span>
+                        </div>
+                        <div class="card-actions">
+                            ${st.running ? `<button class="btn-sm btn-sm-stop" onclick="stopBot('${id}')">Stop</button>` : `<button class="btn-sm btn-sm-start" onclick="startBot('${id}')">Start</button>`}
+                            <button class="btn-sm" onclick="toggleLogs('${id}')">Logs</button>
+                            <button class="btn-sm" onclick="openEditModal('${id}')">Edit</button>
+                            <button class="btn-sm btn-sm-clone" onclick="cloneAccount('${id}')" title="Clone this account">Clone</button>
+                            <button class="btn-sm btn-sm-del" onclick="deleteAcc('${id}')">✕</button>
+                            <button class="btn-sm-expand" onclick="toggleDetail('${id}')">${detailOpen ? '⌃' : '⌄'}</button>
+                        </div>
+                        <div class="card-detail ${detailOpen ? 'open' : ''}" id="detail-${id}">
+                            ${gcNames.length ? `<div style="margin-bottom:3px;">${gcNames.map(n => `<span class="gc-pill">${n}</span>`).join('')}</div>` : ''}
+                            <div class="detail-line"><strong>Delay:</strong> ${acc.msg_delay_min || 2}s – ${acc.msg_delay_max || 5}s</div>
+                            ${acc.cooldown_after > 0 ? `<div class="detail-line"><strong>Cooldown:</strong> after ${acc.cooldown_after} msgs → ${acc.cooldown_dur} min</div>` : ''}
+                            ${acc.nc_titles ? `<div class="detail-line"><strong>NC Titles:</strong> ${acc.nc_titles.split(',').length}</div>` : ''}
+                            <div class="detail-line"><strong>NC Mode:</strong> ${ncMode === 'per_group' ? '🔁 Per Group' : '🌍 Global'}</div>
+                            ${hasSchedule ? `<div class="detail-line"><strong>Schedule:</strong> ${acc.schedule_start || '09:00'} → ${acc.schedule_stop || '18:00'}</div>` : ''}
+                            ${fetchInfo ? `<div class="detail-line"><strong>Auto-fetch:</strong> every ${acc.fetch_interval || 300}s</div>` : ''}
+                            <div class="last-action-text">❯ ${st.last_action || 'Idle'}</div>
+                            <div class="log-panel ${logOpen ? 'open' : ''}" id="log-panel-${id}">
+                                <div class="log-header"><span>Console</span><span class="log-live">LIVE</span></div>
+                                <div class="log-box" id="log-box-${id}"></div>
+                            </div>
+                        </div>`;
+            });
+        }
+
+        function animateNumber(id, target) {
+            const el = $(id);
+            if (!el) return;
+            const current = parseInt(el.textContent) || 0;
+            if (current === target) return;
+            let val = current;
+            const diff = target - current;
+            const steps = Math.min(30, Math.abs(diff) || 1);
+            const step = diff / steps;
+            let i = 0;
+            const interval = setInterval(() => { i++;
+                val += step; if (i >= steps) { el.textContent = target;
+                    clearInterval(interval); } else el.textContent = Math.round(val); }, 18);
+        }
+
+        function colorLog(line) {
+            if (line.includes('✅') || line.includes('✓')) return 'ok';
+            if (line.includes('❌') || line.includes('failed')) return 'err';
+            if (line.includes('⚠️')) return 'warn';
+            if (line.includes('🔄') || line.includes('💤') || line.includes('😴')) return 'info';
+            return '';
+        }
+
+        // ─── POLLING ──────────────────────────────────────────────
+        async function loadAccounts() {
+            try {
+                const r = await fetch('/api/accounts');
+                accounts = await r.json();
+                isLoading = false;
+                renderAccounts(accounts);
+            } catch (e) { console.error(e); if (isLoading) { isLoading = false;
+                    renderAccounts({}); } }
+        }
+
+        async function pollLogs() {
+            document.querySelectorAll('.log-panel.open').forEach(panel => {
+                const id = panel.id.replace('log-panel-', '');
+                fetch(`/api/accounts/${id}/logs`).then(r => r.json()).then(d => {
+                    const box = $(`log-box-${id}`);
+                    if (!box || !d.logs) return;
+                    const current = box.querySelectorAll('.log-line').length;
+                    if (current === 0) {
+                        box.innerHTML = d.logs.map(l => `<div class="log-line ${colorLog(l)}">${l}</div>`).join('');
+                        box.scrollTop = box.scrollHeight;
+                    } else if (d.logs.length > current) {
+                        d.logs.slice(current).forEach(l => {
+                            const div = document.createElement('div');
+                            div.className = `log-line ${colorLog(l)}`;
+                            div.textContent = l;
+                            box.appendChild(div);
+                        });
+                        if (box.scrollHeight - box.scrollTop - box.clientHeight < 50) box.scrollTop = box
+                        .scrollHeight;
+                    }
+                }).catch(() => {});
+            });
+        }
+
+        // ─── KEYBOARD SHORTCUTS ──────────────────────────────────
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'n' || e.key === 'N') { if (!$('modal').classList.contains('open')) openAddModal(); }
+            if (e.key === 'Escape') {
+                if ($('confirmOverlay').classList.contains('open')) resolveConfirm(false);
+                else if ($('modal').classList.contains('open')) closeModal();
+                else if ($('shortcutsOverlay').classList.contains('open')) closeShortcuts();
+            }
+            if (e.key === 'f' || e.key === 'F') { $('searchInput').focus();
+                e.preventDefault(); }
+            if (e.key === 's' || e.key === 'S') { startAllBots();
+                e.preventDefault(); }
+            if (e.key === 'x' || e.key === 'X') { stopAllBots();
+                e.preventDefault(); }
+            if (e.key === 't' || e.key === 'T') { cycleTheme();
+                e.preventDefault(); }
+            if (e.key === 'r' || e.key === 'R') { if (!e.ctrlKey) { loadAccounts();
+                    e.preventDefault(); } }
+            if (e.key === '?') { openShortcuts();
+                e.preventDefault(); }
+            if (e.key === 'Escape') {
+                if ($('shortcutsOverlay').classList.contains('open')) closeShortcuts();
+            }
+            if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')) { exportBackup();
+                e.preventDefault(); }
+        });
+
+        // ─── NAVIGATION ───────────────────────────────────────────
+        document.querySelectorAll('.nav-item').forEach(el => {
+            el.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                this.classList.add('active');
+                // Tab switching logic can be extended
+            });
+        });
+
+        // ─── INIT ─────────────────────────────────────────────────
+        $('modalBody').innerHTML = getModalForm();
+        loadTheme();
+        const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (collapsed) $('sidebar').classList.add('collapsed');
+        renderSkeletons();
+        loadAccounts();
+        startRefresh();
+        setInterval(pollLogs, 1500);
+        // Initial activity
+        setTimeout(() => { addActivity('system', '✦ Dashboard ready'); }, 500);
+
+        $('modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+        $('confirmOverlay').addEventListener('click', function(e) { if (e.target === this) resolveConfirm(false); });
+        $('shortcutsOverlay').addEventListener('click', function(e) { if (e.target === this) closeShortcuts(); });
+    </script>
+</body>
+</html>
