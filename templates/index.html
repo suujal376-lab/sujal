@@ -874,6 +874,7 @@
             $('f-msg-min').value = acc.msg_delay_min || '2';
             $('f-msg-max').value = acc.msg_delay_max || '5';
             $('f-nc-every-msgs').value = acc.nc_every_msgs || '0';
+            $('f-nc-mode').value = acc.nc_mode || 'global';
             $('f-cooldown-after').value = acc.cooldown_after || '0';
             $('f-cooldown-dur').value = acc.cooldown_dur || '5';
             $('f-groups').value = savedGroups.join('\n');
@@ -887,7 +888,7 @@
             if (enabled) toggle.classList.add('active');
             else toggle.classList.remove('active');
 
-            // NEW: fetch settings
+            // fetch settings
             $('fetch-enabled-toggle').classList.toggle('active', !!acc.fetch_enabled);
             $('f-fetch-enabled').value = acc.fetch_enabled ? 'true' : 'false';
             $('f-fetch-interval').value = acc.fetch_interval || 300;
@@ -904,6 +905,7 @@
             $('f-msg-min').value = '2';
             $('f-msg-max').value = '5';
             $('f-nc-every-msgs').value = '0';
+            $('f-nc-mode').value = 'global';
             $('f-cooldown-after').value = '0';
             $('f-cooldown-dur').value = '5';
             $('gc-picker').style.display = 'none';
@@ -938,6 +940,7 @@
             $('f-msg-min').value = acc.msg_delay_min || '2';
             $('f-msg-max').value = acc.msg_delay_max || '5';
             $('f-nc-every-msgs').value = acc.nc_every_msgs || '0';
+            $('f-nc-mode').value = acc.nc_mode || 'global';
             $('f-cooldown-after').value = acc.cooldown_after || '0';
             $('f-cooldown-dur').value = acc.cooldown_dur || '5';
             $('f-groups').value = savedGroups.join('\n');
@@ -985,7 +988,7 @@
                         <div class="form-group"><label>Session ID</label><input id="f-sid" placeholder="sessionid" autocomplete="off"/></div>
                         <div class="form-group"><label>CSRF Token</label><input id="f-csrf" placeholder="csrftoken (optional)"/></div>
                         <div class="form-group"><label>Proxy</label><input id="f-proxy" placeholder="http://user:pass@ip:port"/></div>
-                        <div class="form-group full"><label>Groups (one per line, max 10)</label> <!-- Max 10 -->
+                        <div class="form-group full"><label>Groups (one per line, max 10)</label>
                             <textarea id="f-groups" rows="4" placeholder="1234567890&#10;0987654321"></textarea></div>
                         <div class="form-group full"><label>Group Names (same order, optional)</label>
                             <textarea id="f-gnames" rows="4" placeholder="Group1&#10;Group2"></textarea></div>
@@ -996,6 +999,12 @@
                         <div class="form-group"><label>Min Delay (s)</label><input id="f-msg-min" type="number" value="2" step="0.5"/></div>
                         <div class="form-group"><label>Max Delay (s)</label><input id="f-msg-max" type="number" value="5" step="0.5"/></div>
                         <div class="form-group"><label>NC every N msgs</label><input id="f-nc-every-msgs" type="number" value="0"/></div>
+                        <div class="form-group"><label>NC Mode</label>
+                            <select id="f-nc-mode">
+                                <option value="global">Global (all groups after N msgs)</option>
+                                <option value="per_group">Per Group (each group after N msgs)</option>
+                            </select>
+                        </div>
                         <div class="form-group"><label>Cooldown after N msgs</label><input id="f-cooldown-after" type="number" value="0"/></div>
                         <div class="form-group"><label>Cooldown Duration (min)</label><input id="f-cooldown-dur" type="number" value="5" step="0.5"/></div>
                         <div class="form-group full">
@@ -1058,6 +1067,7 @@
                 msg_delay_min: parseFloat($('f-msg-min').value) || 2,
                 msg_delay_max: parseFloat($('f-msg-max').value) || 5,
                 nc_every_msgs: parseInt($('f-nc-every-msgs').value) || 0,
+                nc_mode: $('f-nc-mode').value,
                 cooldown_after: parseInt($('f-cooldown-after').value) || 0,
                 cooldown_dur: parseFloat($('f-cooldown-dur').value) || 5,
                 schedule_enabled: $('f-schedule-enabled').value === 'true',
@@ -1261,6 +1271,7 @@
                 const pillLabel = status === 'running' ? 'Running' : status === 'cooldown' ? 'Cooldown' : 'Idle';
                 const hasSchedule = acc.schedule_enabled;
                 const fetchInfo = acc.fetch_enabled ? `🔄 ${acc.fetch_interval || 300}s` : '';
+                const ncMode = acc.nc_mode || 'global';
 
                 let existing = $(`card-${id}`);
                 if (!existing) {
@@ -1280,6 +1291,7 @@
                             <div class="card-time">${runtime}</div>
                             ${hasSchedule ? '<span class="schedule-badge" title="Schedule enabled">⏰</span>' : ''}
                             ${fetchInfo ? '<span class="schedule-badge" title="Auto-fetch enabled">🔄</span>' : ''}
+                            ${ncMode === 'per_group' ? '<span class="schedule-badge" title="Per-Group NC mode">🔁</span>' : ''}
                         </div>
                         <div style="margin-bottom:4px;"><span class="status-pill ${status}">${pillLabel}${cooldownStr}</span></div>
                         <div class="card-stats">
@@ -1300,6 +1312,7 @@
                             <div class="detail-line"><strong>Delay:</strong> ${acc.msg_delay_min || 2}s – ${acc.msg_delay_max || 5}s</div>
                             ${acc.cooldown_after > 0 ? `<div class="detail-line"><strong>Cooldown:</strong> after ${acc.cooldown_after} msgs → ${acc.cooldown_dur} min</div>` : ''}
                             ${acc.nc_titles ? `<div class="detail-line"><strong>NC Titles:</strong> ${acc.nc_titles.split(',').length}</div>` : ''}
+                            <div class="detail-line"><strong>NC Mode:</strong> ${ncMode === 'per_group' ? '🔁 Per Group' : '🌍 Global'}</div>
                             ${hasSchedule ? `<div class="detail-line"><strong>Schedule:</strong> ${acc.schedule_start || '09:00'} → ${acc.schedule_stop || '18:00'}</div>` : ''}
                             ${fetchInfo ? `<div class="detail-line"><strong>Auto-fetch:</strong> every ${acc.fetch_interval || 300}s</div>` : ''}
                             <div class="last-action-text">❯ ${st.last_action || 'Idle'}</div>
