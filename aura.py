@@ -13,13 +13,11 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 # ─── DATA ────────────────────────────────────────────────
 def load_data():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE) as f:
-            return json.load(f)
+        with open(DATA_FILE) as f: return json.load(f)
     return {"accounts": {}}
 
 def save_data(d):
-    with open(DATA_FILE, "w") as f:
-        json.dump(d, f, indent=2)
+    with open(DATA_FILE, "w") as f: json.dump(d, f, indent=2)
 
 # ─── GLOBALS ─────────────────────────────────────────────
 bot_threads = {}
@@ -34,7 +32,7 @@ def log(acc_id, msg):
     ts = time.strftime("%H:%M:%S")
     line = f"[{ts}] {msg}"
     if acc_id not in bot_logs:
-        bot_logs[acc_id] = collections.deque(maxlen=100)
+        bot_logs[acc_id] = collections.deque(maxlen=100)  # memory bachao
     bot_logs[acc_id].append(line)
 
 # ─── AUTH ────────────────────────────────────────────────
@@ -48,23 +46,18 @@ def login_required(f):
 
 # ─── INSTAGRAPI HELPERS ──────────────────────────────────
 def decode_session(session_id):
-    if not session_id:
-        return session_id
-    try:
-        return urllib.parse.unquote(session_id)
-    except:
-        return session_id
+    if not session_id: return session_id
+    try: return urllib.parse.unquote(session_id)
+    except: return session_id
 
 def get_client(acc_id, session_id, proxy=None, csrf_token=None):
-    if acc_id in ig_clients:
-        return ig_clients[acc_id]
+    if acc_id in ig_clients: return ig_clients[acc_id]
     if 'fetch_temp' in ig_clients:
         cl = ig_clients.pop('fetch_temp')
         ig_clients[acc_id] = cl
         return cl
     cl = Client()
-    if proxy:
-        cl.set_proxy(proxy)
+    if proxy: cl.set_proxy(proxy)
     cl.login_by_sessionid(decode_session(session_id))
     ig_clients[acc_id] = cl
     return cl
@@ -78,25 +71,20 @@ def extract_thread_id(s):
 def nc_rename(cl, thread_id, title):
     try:
         result = cl.direct_thread_update_title(thread_id, title)
-        if result is not False:
-            return True, None
-    except:
-        pass
+        if result is not False: return True, None
+    except: pass
     try:
         cl.private_request(
             f"direct_v2/threads/{thread_id}/update_title/",
             data={"title": title, "_uuid": cl.uuid, "_uid": str(cl.user_id), "_csrftoken": cl.token}
         )
         return True, None
-    except:
-        pass
+    except: pass
     try:
         thread = cl.direct_thread(thread_id)
         r = thread.update_title(title)
-        if r is not False:
-            return True, None
-    except:
-        pass
+        if r is not False: return True, None
+    except: pass
     try:
         cl.private_request(
             f"direct_v2/threads/{thread_id}/update_title/",
@@ -172,13 +160,13 @@ def bot_worker(acc_id, acc, stop_event):
     # ─── Fetch Thread (dynamic interval) ──────────────────
     def fetch_groups_periodically():
         while not stop_event.is_set():
+            # read fresh interval from data file
             with data_lock:
                 d = load_data()
                 acc_data = d["accounts"].get(acc_id, {})
                 current_interval = acc_data.get("fetch_interval", 300)
             for _ in range(current_interval):
-                if stop_event.is_set():
-                    return
+                if stop_event.is_set(): return
                 time.sleep(1)
             if not fetch_enabled:
                 continue
@@ -253,19 +241,18 @@ def bot_worker(acc_id, acc, stop_event):
 
     def rename_all_groups():
         nonlocal title_idx
-        if not titles:
-            return
+        if not titles: return
         t = titles[title_idx % len(titles)]
         with groups_lock:
             current_groups = list(groups)
         for thread_id in current_groups:
-            if stop_event.is_set():
-                break
+            if stop_event.is_set(): break
             rename_single_thread(thread_id, t)
         title_idx += 1
 
     group_msg_count = {g: 0 for g in groups}
 
+    # ─── Initial NC ────────────────────────────────────────
     log(acc_id, "✏️ Initial NC...")
     rename_all_groups()
 
@@ -279,8 +266,7 @@ def bot_worker(acc_id, acc, stop_event):
             current_groups = list(groups)
 
         for thread_id in current_groups:
-            if stop_event.is_set():
-                break
+            if stop_event.is_set(): break
 
             message = messages[msg_idx % len(messages)] if messages else "🔥 Hey!"
             bot_status[acc_id]["last_action"] = f"Sending → {thread_id}"
@@ -322,8 +308,7 @@ def bot_worker(acc_id, acc, stop_event):
                     log(acc_id, "⏳ Error cooldown — 5 min pause...")
                     bot_status[acc_id]["cooldown"] = True
                     for _ in range(300):
-                        if stop_event.is_set():
-                            break
+                        if stop_event.is_set(): break
                         time.sleep(1)
                     bot_status[acc_id]["cooldown"] = False
                     log(acc_id, "✅ Error cooldown done")
@@ -355,8 +340,7 @@ def bot_worker(acc_id, acc, stop_event):
                     pass
                 last_keepalive = time.time()
 
-            if stop_event.is_set():
-                break
+            if stop_event.is_set(): break
             delay = random.uniform(msg_delay_min, msg_delay_max)
             if delay > 0.5:
                 log(acc_id, f"💤 Delay: {delay:.1f}s")
@@ -407,8 +391,7 @@ def scheduler_check():
             schedule_enabled = acc.get("schedule_enabled", False)
             schedule_start = acc.get("schedule_start", "")
             schedule_stop = acc.get("schedule_stop", "")
-            if not schedule_enabled:
-                continue
+            if not schedule_enabled: continue
             if schedule_start == now:
                 if acc_id not in bot_threads or not bot_threads[acc_id].is_alive():
                     start_bot_thread(acc_id, acc)
@@ -568,8 +551,7 @@ def update_account(acc_id):
 @app.route("/api/accounts/<acc_id>", methods=["DELETE"])
 @login_required
 def delete_account(acc_id):
-    if acc_id in bot_stop:
-        bot_stop[acc_id].set()
+    if acc_id in bot_stop: bot_stop[acc_id].set()
     ig_clients.pop(acc_id, None)
     with data_lock:
         d = load_data()
@@ -583,11 +565,9 @@ def start_bot(acc_id):
     with data_lock:
         d = load_data()
         acc = d["accounts"].get(acc_id)
-    if not acc:
-        return jsonify({"success": False, "error": "Not found"}), 404
+    if not acc: return jsonify({"success": False, "error": "Not found"}), 404
     if acc_id in bot_threads and bot_threads[acc_id].is_alive():
-        if acc_id in bot_stop:
-            bot_stop[acc_id].set()
+        if acc_id in bot_stop: bot_stop[acc_id].set()
         bot_threads[acc_id].join(timeout=5)
     start_bot_thread(acc_id, acc)
     return jsonify({"success": True})
@@ -595,8 +575,7 @@ def start_bot(acc_id):
 @app.route("/api/accounts/<acc_id>/stop", methods=["POST"])
 @login_required
 def stop_bot(acc_id):
-    if acc_id in bot_stop:
-        bot_stop[acc_id].set()
+    if acc_id in bot_stop: bot_stop[acc_id].set()
     if acc_id in bot_status:
         bot_status[acc_id]["running"] = False
         bot_status[acc_id]["last_action"] = "Stopped"
@@ -639,8 +618,7 @@ def bulk_gc():
     with data_lock:
         d = load_data()
         for acc_id in acc_ids:
-            if acc_id not in d["accounts"]:
-                continue
+            if acc_id not in d["accounts"]: continue
             acc = d["accounts"][acc_id]
             groups = [g.strip() for g in acc.get("groups", "").split("\n") if g.strip()]
             names = [n.strip() for n in acc.get("group_names", "").split("\n") if n.strip()]
@@ -652,8 +630,7 @@ def bulk_gc():
                 if group_id in groups:
                     idx = groups.index(group_id)
                     groups.pop(idx)
-                    if idx < len(names):
-                        names.pop(idx)
+                    if idx < len(names): names.pop(idx)
             acc["groups"] = "\n".join(groups)
             acc["group_names"] = "\n".join(names)
         save_data(d)
@@ -688,8 +665,7 @@ def fetch_groups():
     try:
         if acc_id not in ig_clients:
             cl = Client()
-            if proxy:
-                cl.set_proxy(proxy)
+            if proxy: cl.set_proxy(proxy)
             cl.login_by_sessionid(decode_session(session_id))
             ig_clients[acc_id] = cl
         else:
